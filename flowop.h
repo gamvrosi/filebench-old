@@ -58,7 +58,6 @@ typedef struct flowop {
 	struct flowop	*fo_targetnext;	/* List of targets matching name */
 	avd_t		fo_iters;	/* Number of iterations of op */
 	avd_t		fo_value;	/* Attr */
-	avd_t		fo_sequential;	/* Attr */
 	avd_t		fo_random;	/* Attr */
 	avd_t		fo_stride;	/* Attr */
 	avd_t		fo_backwards;	/* Attr */
