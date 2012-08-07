@@ -2807,13 +2807,11 @@ parser_flowop_get_attrs(cmd_t *cmd, flowop_t *flowop)
 	else
 		flowop->fo_fileindex = NULL;
 
-	/* Read Ahead Diable */
+	/* Disable read-ahead */
 	if ((attr = get_attr_bool(cmd, FSA_NOREADAHEAD)))
 		flowop->fo_noreadahead = attr->attr_avd;
 	else
 		flowop->fo_noreadahead = avd_bool_alloc(FALSE);
-
-
 }
 
 /*
