@@ -186,7 +186,7 @@ static void parser_osprof_disable(cmd_t *cmd);
 %token FSE_MULTI FSE_MULTIDUMP
 %token FSK_SEPLST FSK_OPENLST FSK_CLOSELST FSK_ASSIGN FSK_IN FSK_QUOTE
 %token FSK_DIRSEPLST FSK_PLUS FSK_MINUS FSK_MULTIPLY FSK_DIVIDE
-%token FSA_SIZE FSA_PREALLOC FSA_PARALLOC FSA_PATH FSA_REUSE
+%token FSA_SIZE FSA_PREALLOC FSA_PARALLOC FSA_PATH FSA_REUSE FSA_OFFSET
 %token FSA_PROCESS FSA_MEMSIZE FSA_RATE FSA_CACHED FSA_READONLY FSA_TRUSTTREE
 %token FSA_IOSIZE FSA_FILE FSA_POSSET FSA_WSS FSA_NAME FSA_RANDOM FSA_INSTANCES
 %token FSA_DSYNC FSA_TARGET FSA_ITERS FSA_NICE FSA_VALUE FSA_BLOCKING
@@ -1755,6 +1755,7 @@ attrs_flowop:
 | FSA_BLOCKING { $$ = FSA_BLOCKING;}
 | FSA_HIGHWATER { $$ = FSA_HIGHWATER;}
 | FSA_IOSIZE { $$ = FSA_IOSIZE;}
+| FSA_OFFSET { $$ = FSA_OFFSET;}
 | FSA_NOREADAHEAD { $$ = FSA_NOREADAHEAD;};
 
 attrs_eventgen:
@@ -2740,6 +2741,17 @@ parser_flowop_get_attrs(cmd_t *cmd, flowop_t *flowop)
 		flowop->fo_random = attr->attr_avd;
 	else
 		flowop->fo_random = avd_bool_alloc(FALSE);
+
+	/* Offset */
+	if ((attr = get_attr_integer(cmd, FSA_OFFSET))) {
+		if (avd_get_bool(flowop->fo_random) != FALSE) {
+			filebench_log(LOG_ERROR, "Attributes \"random\" "
+					"and \"offset\" are incompatible!");
+			filebench_shutdown(1);
+		}
+		flowop->fo_offset = attr->attr_avd;
+	} else
+		flowop->fo_offset = NULL;
 
 	/* Sync I/O? */
 	if ((attr = get_attr_bool(cmd, FSA_DSYNC)))

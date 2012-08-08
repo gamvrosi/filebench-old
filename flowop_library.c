@@ -551,6 +551,21 @@ flowoplib_read(threadflow_t *threadflow, flowop_t *flowop)
 	    &fdesc, iosize)) != FILEBENCH_OK)
 		return (ret);
 
+	/*
+ 	 * Access pattern for the read flowop can be:
+ 	 * 	1) random: offset is selected randomly
+ 	 *	   with a uniform distribution every time
+ 	 *	   when flowop is executed;
+ 	 * 	2) posset (DEPRECATED): offset is
+ 	 * 	   selected randomly from a predefined
+ 	 * 	   position set ("define posset" command);
+ 	 * 	3) offset: offset is selected based on the
+ 	 * 	   offset attribute value (which can be
+ 	 * 	   a constant or a random variable);
+ 	 * 	4) sequential: read is invoked without
+ 	 * 	   changing the offset;
+ 	 */
+
 	if (avd_get_bool(flowop->fo_random)) {
 		uint64_t fileoffset;
 
@@ -561,7 +576,7 @@ flowoplib_read(threadflow_t *threadflow, flowop_t *flowop)
 			return (FILEBENCH_ERROR);
 		}
 
-		/* select randomly from a possition set */
+		/* select randomly from a position set */
 		if (flowop->fo_posset) {
 			ps = flowop->fo_posset;
 			fb_urandom32(&pos_idx,
@@ -584,10 +599,24 @@ flowoplib_read(threadflow_t *threadflow, flowop_t *flowop)
 			return (FILEBENCH_ERROR);
 		}
 		(void) flowop_endop(threadflow, flowop, ret);
+	} else if (flowop->fo_offset) {
+		uint64_t fileoffset;
 
-		if ((ret == 0))
-			(void) FB_LSEEK(fdesc, 0, SEEK_SET);
+		fileoffset = avd_get_int(flowop->fo_offset);
 
+		(void) flowop_beginop(threadflow, flowop);
+		if ((ret = FB_PREAD(fdesc, iobuf,
+				iosize, (off64_t)fileoffset)) == -1) {
+			(void) flowop_endop(threadflow, flowop, 0);
+			filebench_log(LOG_ERROR,
+			    "read file %s failed, offset %llu "
+			    "io buffer %zd: %s",
+			    avd_get_str(flowop->fo_fileset->fs_name),
+			    (u_longlong_t)fileoffset, iobuf, strerror(errno));
+			flowop_endop(threadflow, flowop, 0);
+			return (FILEBENCH_ERROR);
+		}
+		(void) flowop_endop(threadflow, flowop, ret);
 	} else {
 		(void) flowop_beginop(threadflow, flowop);
 		if ((ret = FB_READ(fdesc, iobuf, iosize)) == -1) {
@@ -601,6 +630,10 @@ flowoplib_read(threadflow_t *threadflow, flowop_t *flowop)
 		}
 		(void) flowop_endop(threadflow, flowop, ret);
 
+		/*
+		 * Rewind file position when we are at the end of a file, so
+ 		 * that the next "sequential" read happens from the beginning.
+ 		 */
 		if ((ret == 0))
 			(void) FB_LSEEK(fdesc, 0, SEEK_SET);
 	}
@@ -2319,6 +2352,20 @@ flowoplib_write(threadflow_t *threadflow, flowop_t *flowop)
 	    &fdesc, iosize)) != FILEBENCH_OK)
 		return (ret);
 
+	/*
+ 	 * Access pattern for the write flowop can be:
+ 	 * 	1) random: offset is selected randomly
+ 	 *	   with a uniform distribution every time
+ 	 *	   when flowop is executed;
+ 	 * 	2) posset (DEPRECATED): offset is
+ 	 * 	   selected randomly from a predefined
+ 	 * 	   position set ("define posset" command);
+ 	 * 	3) offset: offset is selected based on the
+ 	 * 	   offset attribute value (which can be
+ 	 * 	   a constant or a random variable);
+ 	 * 	4) sequential: read is invoked without
+ 	 * 	   changing the offset;
+ 	 */
 	if (avd_get_bool(flowop->fo_random)) {
 		uint64_t fileoffset;
 
@@ -2329,7 +2376,7 @@ flowoplib_write(threadflow_t *threadflow, flowop_t *flowop)
 			return (FILEBENCH_ERROR);
 		}
 
-		/* select randomly from a possition set */
+		/* select randomly from a position set */
 		if (flowop->fo_posset) {
 			ps = flowop->fo_posset;
 			fb_urandom32(&pos_idx,
@@ -2349,7 +2396,22 @@ flowoplib_write(threadflow_t *threadflow, flowop_t *flowop)
 			return (FILEBENCH_ERROR);
 		}
 		flowop_endop(threadflow, flowop, iosize);
-	} else {
+	} else if (flowop->fo_offset) {
+		uint64_t fileoffset;
+
+		fileoffset = avd_get_int(flowop->fo_offset);
+
+		(void) flowop_beginop(threadflow, flowop);
+		if (FB_PWRITE(fdesc, iobuf, iosize,
+				(off64_t)fileoffset) == -1) {
+			filebench_log(LOG_ERROR, "write failed, "
+			    "offset %llu io buffer %zd: %s",
+			    (u_longlong_t)fileoffset, iobuf, strerror(errno));
+			flowop_endop(threadflow, flowop, 0);
+			return (FILEBENCH_ERROR);
+		}
+		(void) flowop_endop(threadflow, flowop, ret);
+	} else { 
 		flowop_beginop(threadflow, flowop);
 		if (FB_WRITE(fdesc, iobuf, iosize) == -1) {
 			filebench_log(LOG_ERROR,

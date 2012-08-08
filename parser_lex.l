@@ -152,6 +152,7 @@ path                    { return FSA_PATH; }
 prealloc                { return FSA_PREALLOC; }
 procname                { return FSA_PROCESS; }
 random                  { return FSA_RANDOM;}
+offset                  { return FSA_OFFSET;}
 randsrc			{ return FSA_RANDSRC; }
 randtable		{ return FSA_RANDTABLE; }
 rate                    { return FSA_RATE;}

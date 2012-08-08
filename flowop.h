@@ -59,6 +59,7 @@ typedef struct flowop {
 	avd_t		fo_iters;	/* Number of iterations of op */
 	avd_t		fo_value;	/* Attr */
 	avd_t		fo_random;	/* Attr */
+	avd_t		fo_offset;	/* Attr */
 	avd_t		fo_stride;	/* Attr */
 	avd_t		fo_backwards;	/* Attr */
 	avd_t		fo_dsync;	/* Attr */
