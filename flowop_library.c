@@ -1548,8 +1548,6 @@ flowoplib_openfile_common(threadflow_t *threadflow, flowop_t *flowop, int fd)
 
 		(void) fb_strlcpy(name,
 		    avd_get_str(flowop->fo_fileset->fs_path), MAXPATHLEN);
-		(void) fb_strlcat(name, "/", MAXPATHLEN);
-		(void) fb_strlcat(name, fileset_name, MAXPATHLEN);
 
 		if (avd_get_bool(flowop->fo_dsync))
 			open_attrs |= O_SYNC;
@@ -1800,8 +1798,6 @@ flowoplib_deletefile(threadflow_t *threadflow, flowop_t *flowop)
 	}
 
 	(void) fb_strlcpy(path, avd_get_str(fileset->fs_path), MAXPATHLEN);
-	(void) fb_strlcat(path, "/", MAXPATHLEN);
-	(void) fb_strlcat(path, avd_get_str(fileset->fs_name), MAXPATHLEN);
 	pathtmp = fileset_resolvepath(file);
 	(void) fb_strlcat(path, pathtmp, MAXPATHLEN);
 	free(pathtmp);
@@ -1958,7 +1954,6 @@ static int
 flowoplib_getdirpath(filesetentry_t *dir, char *path)
 {
 	char		*fileset_path;
-	char		*fileset_name;
 	char		*part_path;
 
 	if ((fileset_path = avd_get_str(dir->fse_fileset->fs_path)) == NULL) {
@@ -1966,14 +1961,7 @@ flowoplib_getdirpath(filesetentry_t *dir, char *path)
 		return (FILEBENCH_ERROR);
 	}
 
-	if ((fileset_name = avd_get_str(dir->fse_fileset->fs_name)) == NULL) {
-		filebench_log(LOG_ERROR, "Fileset name not set");
-		return (FILEBENCH_ERROR);
-	}
-
 	(void) fb_strlcpy(path, fileset_path, MAXPATHLEN);
-	(void) fb_strlcat(path, "/", MAXPATHLEN);
-	(void) fb_strlcat(path, fileset_name, MAXPATHLEN);
 
 	if ((part_path = fileset_resolvepath(dir)) == NULL)
 		return (FILEBENCH_ERROR);
@@ -2177,9 +2165,6 @@ flowoplib_statfile(threadflow_t *threadflow, flowop_t *flowop)
 
 		/* resolve path and do a stat on file */
 		(void) fb_strlcpy(path, avd_get_str(fileset->fs_path),
-		    MAXPATHLEN);
-		(void) fb_strlcat(path, "/", MAXPATHLEN);
-		(void) fb_strlcat(path, avd_get_str(fileset->fs_name),
 		    MAXPATHLEN);
 		pathtmp = fileset_resolvepath(file);
 		(void) fb_strlcat(path, pathtmp, MAXPATHLEN);
