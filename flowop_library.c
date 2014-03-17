@@ -405,6 +405,7 @@ flowoplib_filesetup(threadflow_t *threadflow, flowop_t *flowop,
 
 	if (threadflow->tf_fd[fd].fd_ptr == NULL) {
 		int ret;
+		char path[MAXPATHLEN];
 
 		if ((ret = flowoplib_openfile_common(
 		    threadflow, flowop, fd)) != FILEBENCH_OK)
@@ -414,10 +415,9 @@ flowoplib_filesetup(threadflow_t *threadflow, flowop_t *flowop,
 			filebench_log(LOG_DEBUG_IMPL, "opened file %s",
 			    threadflow->tf_fse[fd]->fse_path);
 		} else {
-			filebench_log(LOG_DEBUG_IMPL,
-			    "opened device %s/%s",
-			    avd_get_str(flowop->fo_fileset->fs_path),
-			    avd_get_str(flowop->fo_fileset->fs_name));
+			fileset_getpath(flowop->fo_fileset, path, MAXPATHLEN);
+			filebench_log(LOG_DEBUG_IMPL, "opened device %s(%s)",
+			    avd_get_str(flowop->fo_fileset->fs_name), path);
 		}
 	}
 
@@ -541,6 +541,7 @@ flowoplib_read(threadflow_t *threadflow, flowop_t *flowop)
 	fbint_t iosize;
 	fb_fdesc_t *fdesc;
 	int ret;
+	char path[MAXPATHLEN];
 
 	iosize = avd_get_int(flowop->fo_iosize);
 
@@ -565,10 +566,11 @@ flowoplib_read(threadflow_t *threadflow, flowop_t *flowop)
 		if ((ret = FB_PREAD(fdesc, iobuf,
 		    iosize, (off64_t)fileoffset)) == -1) {
 			(void) flowop_endop(threadflow, flowop, 0);
+			fileset_getpath(flowop->fo_fileset, path, MAXPATHLEN);
 			filebench_log(LOG_ERROR,
-			    "read file %s failed, offset %llu "
+			    "read file %s(%s) failed, offset %llu "
 			    "io buffer %zd: %s",
-			    avd_get_str(flowop->fo_fileset->fs_name),
+			    avd_get_str(flowop->fo_fileset->fs_name), path,
 			    (u_longlong_t)fileoffset, iobuf, strerror(errno));
 			flowop_endop(threadflow, flowop, 0);
 			return (FILEBENCH_ERROR);
@@ -582,9 +584,10 @@ flowoplib_read(threadflow_t *threadflow, flowop_t *flowop)
 		(void) flowop_beginop(threadflow, flowop);
 		if ((ret = FB_READ(fdesc, iobuf, iosize)) == -1) {
 			(void) flowop_endop(threadflow, flowop, 0);
+			fileset_getpath(flowop->fo_fileset, path, MAXPATHLEN);
 			filebench_log(LOG_ERROR,
-			    "read file %s failed, io buffer %zd: %s",
-			    avd_get_str(flowop->fo_fileset->fs_name),
+			    "read file %s(%s) failed, io buffer %zd: %s",
+			    avd_get_str(flowop->fo_fileset->fs_name), path,
 			    iobuf, strerror(errno));
 			(void) flowop_endop(threadflow, flowop, 0);
 			return (FILEBENCH_ERROR);
@@ -2078,7 +2081,7 @@ flowoplib_listdir(threadflow_t *threadflow, flowop_t *flowop)
 	/* open the directory */
 	if ((dir_handle = FB_OPENDIR(full_path)) == NULL) {
 		filebench_log(LOG_ERROR,
-		    "flowop %s failed to open directory in fileset %s\n",
+		    "flowop %s failed to open directory in fileset %s",
 		    flowop->fo_name, avd_get_str(fileset->fs_name));
 		return (FILEBENCH_ERROR);
 	}

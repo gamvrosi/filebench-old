@@ -1570,6 +1570,7 @@ fileset_populate(fileset_t *fileset)
 {
 	fbint_t entries = avd_get_int(fileset->fs_entries);
 	fbint_t leafdirs = avd_get_int(fileset->fs_leafdirs);
+	char path[MAXPATHLEN];
 	int meandirwidth = 0;
 	int ret;
 
@@ -1652,17 +1653,18 @@ fileset_populate(fileset_t *fileset)
 		return (ret);
 
 exists:
+	fileset_getpath(fileset, path, MAXPATHLEN);
+
 	if (fileset->fs_attrs & FILESET_IS_FILE) {
-		filebench_log(LOG_VERBOSE, "File %s: %.3lfMB",
-		    avd_get_str(fileset->fs_name),
+		filebench_log(LOG_VERBOSE, "File %s(%s): %.3lfMB",
+		    avd_get_str(fileset->fs_name), path,
 		    (double)fileset->fs_bytes / 1024UL / 1024UL);
 	} else {
-		filebench_log(LOG_INFO, "%s populated: %llu files, "
+		filebench_log(LOG_INFO, "%s populated at %s: %llu files, "
 		    "avg. dir. width = %d, avg. dir. depth = %.1lf, "
 			"%llu leafdirs, %.3lfMB total size",
-		    avd_get_str(fileset->fs_name), entries, leafdirs,
-		    meandirwidth,
-		    fileset->fs_meandepth,
+		    avd_get_str(fileset->fs_name), path, entries, leafdirs,
+		    meandirwidth, fileset->fs_meandepth,
 		    (double)fileset->fs_bytes / 1024UL / 1024UL);
 	}
 
@@ -1743,9 +1745,8 @@ fileset_checkraw(fileset_t *fileset)
 		fileset->fs_attrs |= FILESET_IS_RAW_DEV;
 		if (!(fileset->fs_attrs & FILESET_IS_FILE)) {
 			filebench_log(LOG_ERROR,
-			    "WARNING Fileset %s/%s Cannot be RAW device",
-			    avd_get_str(fileset->fs_path),
-			    avd_get_str(fileset->fs_name));
+			    "WARNING Fileset %s(%s) Cannot be RAW device",
+			    avd_get_str(fileset->fs_name), path);
 			filebench_shutdown(1);
 		}
 		return 1;
@@ -1762,6 +1763,7 @@ fileset_checkraw(fileset_t *fileset)
 int
 fileset_createsets()
 {
+	char path[MAXPATHLEN];
 	fileset_t *list;
 	int ret = 0;
 
@@ -1794,21 +1796,29 @@ fileset_createsets()
 
 		/* check for raw files */
 		if (fileset_checkraw(list)) {
+			fileset_getpath(list, path, MAXPATHLEN);
 			filebench_log(LOG_INFO,
-			    "File %s/%s is a RAW device",
-			    avd_get_str(list->fs_path),
-			    avd_get_str(list->fs_name));
+			    "File %s(%s) is a RAW device",
+			    avd_get_str(list->fs_name), path);
 			list = list->fs_next;
 			continue;
 		}
 
 		ret = fileset_populate(list);
-		if (ret)
+		if (ret) {
+			fileset_getpath(list, path, MAXPATHLEN);
+			filebench_log(LOG_ERROR, "Error populating fileset "
+				"%s(%s)", avd_get_str(list->fs_name), path);
 			return ret;
+		}
 
 		ret = fileset_create(list);
-		if (ret)
+		if (ret) {
+			fileset_getpath(list, path, MAXPATHLEN);
+			filebench_log(LOG_ERROR, "Error creating fileset "
+				"%s(%s)", avd_get_str(list->fs_name), path);
 			return ret;
+		}
 
 		list = list->fs_next;
 	}
@@ -1894,11 +1904,11 @@ int
 fileset_print(fileset_t *fileset, int first)
 {
 	int pathlength;
-	char *fileset_path;
+	char path[MAXPATHLEN];
 	char *fileset_name;
 	static char pad[] = "                              "; /* 30 spaces */
 
-	if ((fileset_path = avd_get_str(fileset->fs_path)) == NULL) {
+	if (avd_get_str(fileset->fs_path) == NULL) {
 		filebench_log(LOG_ERROR, "%s path not set",
 		    fileset_entity_name(fileset));
 		return (FILEBENCH_ERROR);
@@ -1910,7 +1920,8 @@ fileset_print(fileset_t *fileset, int first)
 		return (FILEBENCH_ERROR);
 	}
 
-	pathlength = strlen(fileset_path) + strlen(fileset_name);
+	fileset_getpath(fileset, path, MAXPATHLEN);
+	pathlength = strlen(path);
 
 	if (pathlength > 29)
 		pathlength = 29;
@@ -1925,18 +1936,17 @@ fileset_print(fileset_t *fileset, int first)
 	if (fileset->fs_attrs & FILESET_IS_FILE) {
 		if (fileset->fs_attrs & FILESET_IS_RAW_DEV) {
 			filebench_log(LOG_INFO,
-			    "%s/%s%s         (Raw Device)",
-			    fileset_path, fileset_name, &pad[pathlength]);
+			    "%s(%s)%s         (Raw Device)",
+			    fileset_name, path, &pad[pathlength]);
 		} else {
 			filebench_log(LOG_INFO,
-			    "%s/%s%s%9llu     (Single File)",
-			    fileset_path, fileset_name, &pad[pathlength],
+			    "%s(%s)%s%9llu     (Single File)",
+			    fileset_name, path, &pad[pathlength],
 			    (u_longlong_t)avd_get_int(fileset->fs_size));
 		}
 	} else {
-		filebench_log(LOG_INFO, "%s/%s%s%9llu%12llu%10llu",
-		    fileset_path, fileset_name,
-		    &pad[pathlength],
+		filebench_log(LOG_INFO, "%s(%s)%s%9llu%12llu%10llu",
+		    fileset_name, path, &pad[pathlength],
 		    (u_longlong_t)avd_get_int(fileset->fs_size),
 		    (u_longlong_t)avd_get_int(fileset->fs_dirwidth),
 		    (u_longlong_t)fileset->fs_constentries);
