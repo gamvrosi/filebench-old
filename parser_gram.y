@@ -1493,6 +1493,14 @@ attr_value: FSV_STRING
 	if (($$ = alloc_attr()) == NULL)
 		YYERROR;
 	$$->attr_avd = avd_var_alloc($1);
+} | FSV_VARIABLE FSV_STRING {
+	avd_t obj;
+
+	if (($$ = alloc_attr()) == NULL)
+		YYERROR;
+	$$->attr_avd = avd_var_alloc($1);
+	obj = avd_str_alloc($2);
+	$$->attr_obj = (void*) &obj;
 };
 
 var_int_val: FSV_VAL_INT
@@ -2665,7 +2673,11 @@ parser_fileset_define_common(cmd_t *cmd)
 
 	if ((attr = get_attr(cmd, FSA_PATH)))  {
 		fileset->fs_path = attr->attr_avd;
-		fileset->fs_pathstr = avd_str_alloc("");
+		if (attr->attr_obj)
+			fileset->fs_pathstr =
+				(avd_t) *((avd_t *) attr->attr_obj);
+		else
+			fileset->fs_pathstr = avd_str_alloc("");
 	} else {
 		filebench_log(LOG_ERROR, "Cannot interpret path");
 		return (NULL);
