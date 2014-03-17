@@ -80,7 +80,8 @@ typedef struct filesetentry {
 typedef struct fileset {
 	struct fileset	*fs_next;	/* Next in list */
 	avd_t		fs_name;	/* Name */
-	avd_t		fs_path;	/* Pathname prefix in fileset */
+	avd_t		fs_path;	/* Path (or path prefix) of fileset */
+	avd_t		fs_pathstr;	/* Path suffix, if path is var+str */
 	avd_t		fs_entries;	/* Number of entries attr */
 					/* (possibly random) */
 	fbint_t		fs_constentries; /* Constant version of enties attr */
@@ -162,5 +163,6 @@ void fileset_unbusy(filesetentry_t *entry, int update_exist,
     int new_exist_val, int open_cnt_incr);
 int fileset_dump_histo(fileset_t *fileset, int first);
 void fileset_attach_all_histos(void);
+void fileset_getpath(fileset_t *fileset, char *dest, int len);
 
 #endif	/* _FB_FILESET_H */

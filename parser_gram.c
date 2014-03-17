@@ -5690,6 +5690,7 @@ parser_fileset_define_common(cmd_t *cmd)
 
 	if ((attr = get_attr(cmd, FSA_PATH)))  {
 		fileset->fs_path = attr->attr_avd;
+		fileset->fs_pathstr = avd_str_alloc("");
 	} else {
 		filebench_log(LOG_ERROR, "Cannot interpret path");
 		return (NULL);
@@ -6575,7 +6576,7 @@ parser_fsflush(cmd_t *cmd)
 {
 	fileset_t *fileset;
 	char **fspathlist;
-	char *pathname = NULL;
+	char pathname[MAXPATHLEN];
 	char *filesys = NULL;
 	char string[MAXPATHLEN];
 	attr_t *attr;
@@ -6614,8 +6615,16 @@ parser_fsflush(cmd_t *cmd)
 	     fileset = fileset->fs_next) {
 		int idx;
 
-		if ((pathname = avd_get_str(fileset->fs_path)) == NULL)
+		if (avd_get_str(fileset->fs_path) == NULL)
 			return;
+
+		(void) fb_strlcpy(pathname, avd_get_str(fileset->fs_path),
+		    MAXPATHLEN);
+		if (avd_get_str(fileset->fs_pathstr) != NULL) {
+			(void) fb_strlcat(pathname, "/", MAXPATHLEN);
+			(void) fb_strlcat(pathname,
+			    avd_get_str(fileset->fs_pathstr), MAXPATHLEN);
+		}
 
 		for (idx = 0; idx < fsidx; idx++) {
 			if (strcmp(pathname, fspathlist[idx]) == 0)

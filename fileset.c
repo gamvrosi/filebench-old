@@ -253,6 +253,21 @@ fileset_move_entry(avl_tree_t *src_tree, avl_tree_t *dst_tree,
 }
 
 /*
+ * Gets the fileset path. If the path is defined as the concatenation of a
+ * variable and a string, this function does the extra work. The destination
+ * string must be preallocated with length len.
+ */
+void
+fileset_getpath(fileset_t *fileset, char *dest, int len)
+{
+	(void) fb_strlcpy(dest, avd_get_str(fileset->fs_path), len);
+	if (avd_get_str(fileset->fs_pathstr) != NULL) {
+		(void) fb_strlcat(dest, "/", len);
+		(void) fb_strlcat(dest, avd_get_str(fileset->fs_pathstr), len);
+	}
+}
+
+/*
  * given a fileset entry, determines if the associated leaf directory
  * needs to be made or not, and if so does the mkdir.
  */
@@ -265,7 +280,7 @@ fileset_alloc_leafdir(filesetentry_t *entry)
 	char *pathtmp;
 
 	fileset = entry->fse_fileset;
-	(void) fb_strlcpy(path, avd_get_str(fileset->fs_path), MAXPATHLEN);
+	fileset_getpath(fileset, path, MAXPATHLEN);
 	pathtmp = fileset_resolvepath(entry);
 	(void) fb_strlcat(path, pathtmp, MAXPATHLEN);
 	free(pathtmp);
@@ -307,7 +322,7 @@ fileset_alloc_file(filesetentry_t *entry)
 	int trust_tree;
 
 	fileset = entry->fse_fileset;
-	(void) fb_strlcpy(path, avd_get_str(fileset->fs_path), MAXPATHLEN);
+	fileset_getpath(fileset, path, MAXPATHLEN);
 	pathtmp = fileset_resolvepath(entry);
 	(void) fb_strlcat(path, pathtmp, MAXPATHLEN);
 	free(pathtmp);
@@ -459,7 +474,7 @@ fileset_openfile(fb_fdesc_t *fdesc, fileset_t *fileset,
 	struct stat64 sb;
 	int open_attrs = 0;
 
-	(void) fb_strlcpy(path, avd_get_str(fileset->fs_path), MAXPATHLEN);
+	fileset_getpath(fileset, path, MAXPATHLEN);
 	pathtmp = fileset_resolvepath(entry);
 	(void) fb_strlcat(path, pathtmp, MAXPATHLEN);
 	(void) fb_strlcpy(dir, path, MAXPATHLEN);
@@ -1020,7 +1035,7 @@ fileset_create(fileset_t *fileset)
 	/* XXX Add check to see if there is enough space */
 
 	/* set up path to fileset */
-	(void) fb_strlcpy(path, fileset_path, MAXPATHLEN);
+	fileset_getpath(fileset, path, MAXPATHLEN);
 
 	/* if reusing and trusting to exist, just blindly reuse */
 	if (avd_get_bool(fileset->fs_trust_tree)) {
@@ -1176,17 +1191,19 @@ fileset_create(fileset_t *fileset)
 static void
 fileset_delete_storage(fileset_t *fileset)
 {
-	char *fileset_path;
+	char path[MAXPATHLEN];
 
-	if ((fileset_path = avd_get_str(fileset->fs_path)) == NULL)
+	if (avd_get_str(fileset->fs_path) == NULL)
 		return;
+
+	fileset_getpath(fileset, path, MAXPATHLEN);
 
 	/* treat raw device as special case */
 	if (fileset->fs_attrs & FILESET_IS_RAW_DEV)
 		return;
 
 	/* now delete any files and directories on the disk */
-	FB_RECUR_RM(fileset_path);
+	FB_RECUR_RM(path);
 }
 
 /*
@@ -1711,17 +1728,16 @@ fileset_checkraw(fileset_t *fileset)
 {
 	char path[MAXPATHLEN];
 	struct stat64 sb;
-	char *pathname;
 
 	fileset->fs_attrs &= (~FILESET_IS_RAW_DEV);
 
-	if ((pathname = avd_get_str(fileset->fs_path)) == NULL) {
+	if (avd_get_str(fileset->fs_path) == NULL) {
 		filebench_log(LOG_ERROR, "%s path not set",
 		    fileset_entity_name(fileset));
 		filebench_shutdown(1);
 	}
 
-	(void) fb_strlcpy(path, pathname, MAXPATHLEN);
+	fileset_getpath(fileset, path, MAXPATHLEN);
 	if ((stat64(path, &sb) == 0) &&
 	    ((sb.st_mode & S_IFMT) == S_IFBLK)) {
 		fileset->fs_attrs |= FILESET_IS_RAW_DEV;

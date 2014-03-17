@@ -1544,10 +1544,9 @@ flowoplib_openfile_common(threadflow_t *threadflow, flowop_t *flowop, int fd)
 
 	if (flowop->fo_fileset->fs_attrs & FILESET_IS_RAW_DEV) {
 		int open_attrs = 0;
-		char name[MAXPATHLEN];
+		char path[MAXPATHLEN];
 
-		(void) fb_strlcpy(name,
-		    avd_get_str(flowop->fo_fileset->fs_path), MAXPATHLEN);
+		fileset_getpath(flowop->fo_fileset, path, MAXPATHLEN);
 
 		if (avd_get_bool(flowop->fo_dsync))
 			open_attrs |= O_SYNC;
@@ -1558,13 +1557,13 @@ flowoplib_openfile_common(threadflow_t *threadflow, flowop_t *flowop, int fd)
 #endif /* HAVE_O_DIRECT */
 
 		filebench_log(LOG_DEBUG_SCRIPT,
-		    "open raw device %s flags %d = %d", name, open_attrs, fd);
+		    "open raw device %s flags %d = %d", path, open_attrs, fd);
 
-		if (FB_OPEN(&(threadflow->tf_fd[fd]), name,
+		if (FB_OPEN(&(threadflow->tf_fd[fd]), path,
 		    openflag | open_attrs, 0666) == FILEBENCH_ERROR) {
 			filebench_log(LOG_ERROR,
-			    "Failed to open raw device %s: %s",
-			    name, strerror(errno));
+				"Failed to open raw device %s: %s",
+				path, strerror(errno));
 			return (FILEBENCH_ERROR);
 		}
 
@@ -1585,7 +1584,7 @@ flowoplib_openfile_common(threadflow_t *threadflow, flowop_t *flowop, int fd)
 				!= FILEBENCH_OK) {
 				filebench_log(LOG_ERROR,
 					"Failed to disable read ahead for raw device %s, with status %s", 
-				    	name, strerror(errno));
+					path, strerror(errno));
 				return (FILEBENCH_ERROR);
 			}
 			filebench_log(LOG_INFO, "** Read ahead disabled ** ");
@@ -1797,7 +1796,7 @@ flowoplib_deletefile(threadflow_t *threadflow, flowop_t *flowop)
 		return (FILEBENCH_OK);
 	}
 
-	(void) fb_strlcpy(path, avd_get_str(fileset->fs_path), MAXPATHLEN);
+	fileset_getpath(fileset, path, MAXPATHLEN);
 	pathtmp = fileset_resolvepath(file);
 	(void) fb_strlcat(path, pathtmp, MAXPATHLEN);
 	free(pathtmp);
@@ -1961,7 +1960,7 @@ flowoplib_getdirpath(filesetentry_t *dir, char *path)
 		return (FILEBENCH_ERROR);
 	}
 
-	(void) fb_strlcpy(path, fileset_path, MAXPATHLEN);
+	fileset_getpath(dir->fse_fileset, path, MAXPATHLEN);
 
 	if ((part_path = fileset_resolvepath(dir)) == NULL)
 		return (FILEBENCH_ERROR);
@@ -2164,8 +2163,7 @@ flowoplib_statfile(threadflow_t *threadflow, flowop_t *flowop)
 		}
 
 		/* resolve path and do a stat on file */
-		(void) fb_strlcpy(path, avd_get_str(fileset->fs_path),
-		    MAXPATHLEN);
+		fileset_getpath(fileset, path, MAXPATHLEN);
 		pathtmp = fileset_resolvepath(file);
 		(void) fb_strlcat(path, pathtmp, MAXPATHLEN);
 		free(pathtmp);
