@@ -700,9 +700,9 @@ flowoplib_wakeup(threadflow_t *threadflow, flowop_t *flowop)
 }
 
 /*
- * "think time" routines. the "hog" routine consumes cpu cycles as
- * it "thinks", while the "delay" flowop simply calls sleep() to delay
- * for a given number of seconds without consuming cpu cycles.
+ * "think time" routines. the "hog" routine consumes cpu cycles as it "thinks",
+ * while the "delay" flowop simply calls sleep() to delay for a given amount of
+ * time (nanosecond granularity) without consuming cpu cycles.
  */
 
 
@@ -730,15 +730,19 @@ flowoplib_hog(threadflow_t *threadflow, flowop_t *flowop)
 
 
 /*
- * Delays for fo_value seconds.
+ * Delays for fo_value seconds (nanosecond granularity).
  */
 static int
 flowoplib_delay(threadflow_t *threadflow, flowop_t *flowop)
 {
-	int value = avd_get_int(flowop->fo_value);
+	double value = avd_get_dbl(flowop->fo_value);
+	struct timespec val;
+
+	val.tv_nsec = (long) (fmod(value, 1.0) * 1000000000);
+	val.tv_sec = (time_t) (value - (val.tv_nsec / 1000000000));
 
 	flowop_beginop(threadflow, flowop);
-	(void) sleep(value);
+	(void) nanosleep(&val, NULL);
 	flowop_endop(threadflow, flowop, 0);
 	return (FILEBENCH_OK);
 }
@@ -2705,7 +2709,7 @@ flowoplib_usage()
 	(void) fprintf(stderr,
 	    "flowop hog name=<name>,value=<number-of-mem-ops>\n");
 	(void) fprintf(stderr,
-	    "flowop delay name=<name>,value=<number-of-seconds>\n");
+	    "flowop delay name=<name>,value=<decimal-in-seconds>\n");
 	(void) fprintf(stderr, "\n");
 	(void) fprintf(stderr, "flowop eventlimit name=<name>\n");
 	(void) fprintf(stderr, "flowop bwlimit name=<name>,value=<mb/s>\n");
