@@ -6969,9 +6969,9 @@ parser_var_assign_random(char *name, cmd_t *cmd)
 		rndp->rnd_mean = avd_int_alloc(0);
 	}
 
+randdist_init:
 	var_assign_random(name, rndp);
 
-randdist_init:
 	randdist_init(rndp);
 }
 
