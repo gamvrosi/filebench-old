@@ -40,13 +40,13 @@
 #include "fsplug.h"
 
 /*
- * File sets, of type fileset_t, are entities which contain
- * information about collections of files and subdirectories in Filebench.
- * The fileset, once populated, consists of a tree of fileset entries of
- * type filesetentry_t which specify files and directories.  The fileset
- * is rooted in a directory specified by fileset_path, and once the populated
- * fileset has been created, has a tree of directories and files
- * corresponding to the fileset's filesetentry tree.
+ * File sets, of type fileset_t, are entities which contain information about
+ * collections of files and subdirectories in Filebench. The fileset, once
+ * populated, consists of a tree of fileset entries of type filesetentry_t
+ * which specify files and directories. The fileset is rooted in a directory
+ * specified by fileset_path, and once the populated fileset has been created,
+ * has a tree of directories and files corresponding to the fileset's
+ * filesetentry tree.
  *
  * Fileset entities are allocated by fileset_define() which is called from
  * parser_gram.y: parser_fileset_define(). The filesetentry tree corrseponding
@@ -67,8 +67,7 @@
 #define	MAX_PARALLOC_THREADS 32
 
 /*
- * returns pointer to file or fileset
- * string, as appropriate
+ * returns pointer to file or fileset string, as appropriate
  */
 static char *
 fileset_entity_name(fileset_t *fileset)
@@ -80,10 +79,9 @@ fileset_entity_name(fileset_t *fileset)
 }
 
 /*
- * Removes the last file or directory name from a pathname.
- * Basically removes characters from the end of the path by
- * setting them to \0 until a forward slash '/' is
- * encountered. It also removes the forward slash.
+ * Removes the last file or directory name from a pathname. Basically removes
+ * characters from the end of the path by setting them to \0 until a forward
+ * slash '/' is encountered. It also removes the forward slash.
  */
 static char *
 trunc_dirname(char *dir)
@@ -129,11 +127,10 @@ fileset_usage(void)
 }
 
 /*
- * Creates a path string from the filesetentry_t "*entry"
- * and all of its parent's path names. The resulting path
- * is a concatination of all the individual parent paths.
- * Allocates memory for the path string and returns a
- * pointer to it.
+ * Creates a path string from the filesetentry_t "*entry" and all of its
+ * parent's path names. The resulting path is a concatination of all the
+ * individual parent paths. Allocates memory for the path string and
+ * returns a pointer to it.
  */
 char *
 fileset_resolvepath(filesetentry_t *entry)
@@ -158,10 +155,9 @@ fileset_resolvepath(filesetentry_t *entry)
 }
 
 /*
- * Creates multiple nested directories as required by the
- * supplied path. Starts at the end of the path, creating
- * a list of directories to mkdir, up to the root of the
- * path, then mkdirs them one at a time from the root on down.
+ * Creates multiple nested directories as required by the supplied path.
+ * Starts at the end of the path, creating a list of directories to mkdir, up
+ * to the root of the path, then mkdirs them one at a time from the root down.
  */
 static int
 fileset_mkdir(char *path, int mode)
@@ -223,7 +219,7 @@ fileset_create_subdirs(fileset_t *fileset, char *filesetpath)
 	char full_path[MAXPATHLEN];
 	char *part_path;
 
-	/* walk the subdirectory list, enstanciating subdirs */
+	/* walk the subdirectory list, instanciating subdirs */
 	direntry = fileset->fs_dirlist;
 	while (direntry) {
 		(void) fb_strlcpy(full_path, filesetpath, MAXPATHLEN);
@@ -395,10 +391,7 @@ fileset_alloc_file(filesetentry_t *entry)
 		off64_t wsize;
 		int ret = 0;
 
-		/*
-		 * Write FILE_ALLOC_BLOCK's worth,
-		 * except on last write
-		 */
+		/* Write FILE_ALLOC_BLOCK's worth, except on last write */
 		wsize = MIN(entry->fse_size - seek, FILE_ALLOC_BLOCK);
 
 		ret = FB_WRITE(&fdesc, buf, wsize);
@@ -432,8 +425,8 @@ fileset_alloc_file(filesetentry_t *entry)
 }
 
 /*
- * given a fileset entry, determines if the associated file
- * needs to be allocated or not, and if so does the allocation.
+ * Given a fileset entry, determines if the associated file needs to be
+ * allocated or not, and if so does the allocation.
  * Sets shm_fsparalloc_count to -1 on error.
  */
 static void *
@@ -456,12 +449,11 @@ fileset_alloc_thread(filesetentry_t *entry)
 
 
 /*
- * First creates the parent directories of the file using
- * fileset_mkdir(). Then Optionally sets the O_DSYNC flag
- * and opens the file with open64(). It unlocks the fileset
- * entry lock, sets the DIRECTIO_ON or DIRECTIO_OFF flags
- * as requested, and returns the file descriptor integer
- * for the opened file in the supplied filebench file descriptor.
+ * First creates the parent directories of the file using fileset_mkdir().
+ * Then optionally sets the O_DSYNC flag and opens the file with open64().
+ * It unlocks the fileset entry lock, sets the DIRECTIO_ON or DIRECTIO_OFF
+ * flags as requested, and returns the file descriptor integer for the opened
+ * file in the supplied filebench file descriptor.
  * Returns FILEBENCH_ERROR on error, and FILEBENCH_OK on success.
  */
 int
@@ -543,8 +535,7 @@ fileset_openfile(fb_fdesc_t *fdesc, fileset_t *fileset,
 
 /*
  * removes all filesetentries from their respective btrees, and puts them
- * on the free list. The supplied argument indicates which free list to
- * use.
+ * on the free list. The supplied argument indicates which free list to use.
  */
 static void
 fileset_pickreset(fileset_t *fileset, int entry_type)
@@ -638,19 +629,16 @@ fileset_find_entry(avl_tree_t *atp, uint_t index)
 }
 
 /*
- * Selects a fileset entry from a fileset. If the
- * FILESET_PICKLEAFDIR flag is set it will pick a leaf directory entry,
- * if the FILESET_PICKDIR flag is set it will pick a non leaf directory
- * entry, otherwise a file entry. The FILESET_PICKUNIQUE
- * flag will take an entry off of one of the free (unused)
- * lists (file or directory), otherwise the entry will be
- * picked off of one of the rotor lists (file or directory).
- * The FILESET_PICKEXISTS will insure that only extant
- * (FSE_EXISTS) state files are selected, while
- * FILESET_PICKNOEXIST insures that only non extant
- * (not FSE_EXISTS) state files are selected.
- * Note that the selected fileset entry (file) is returned
- * with its FSE_BUSY flag (in fse_flags) set.
+ * Selects a fileset entry from a fileset. If the FILESET_PICKLEAFDIR flag is
+ * set it will pick a leaf directory entry, if the FILESET_PICKDIR flag is set
+ * it will pick a non leaf directory entry, otherwise a file entry. The
+ * FILESET_PICKUNIQUE flag will take an entry off of one of the free (unused)
+ * lists (file or directory), otherwise the entry will be picked off of one of
+ * the rotor lists (file or directory). The FILESET_PICKEXISTS will insure that
+ * only extant (FSE_EXISTS) state files are selected, while FILESET_PICKNOEXIST
+ * ensures that only non extant (not FSE_EXISTS) state files are selected. Note
+ * that the selected fileset entry (file) is returned with its FSE_BUSY flag
+ * (in fse_flags) set.
  */
 filesetentry_t *
 fileset_pick(fileset_t *fileset, int flags, int tid, int index)
@@ -724,10 +712,9 @@ fileset_pick(fileset_t *fileset, int flags, int tid, int index)
 		uint64_t  index64;
 
 		/*
-		 * pick at random from free list in order to
-		 * distribute initially allocated files more
-		 * randomly on storage media. Use uniform
-		 * random number generator to select index
+		 * pick at random from free list in order to distribute
+		 * initially allocated files more randomly on storage media.
+		 * Use uniform random number generator to select index
 		 * if it is not supplied with pick call.
 		 */
 		if (index) {
@@ -989,19 +976,16 @@ fileset_unbusy(filesetentry_t *entry, int update_exist,
 }
 
 /*
- * Given a fileset "fileset", create the associated files as
- * specified in the attributes of the fileset. The fileset is
- * rooted in a directory whose pathname is in fileset_path. If the
- * directory exists, meaning that there is already a fileset,
- * and the fileset_reuse attribute is false, then remove it and all
- * its contained files and subdirectories. Next, the routine
- * creates a root directory for the fileset. All the file type
- * filesetentries are cycled through creating as needed
- * their containing subdirectory trees in the filesystem and
- * creating actual files for fileset_preallocpercent of them. The
- * created files are filled with fse_size bytes of unitialized
- * data. The routine returns FILEBENCH_ERROR on errors,
- * FILEBENCH_OK on success.
+ * Given a fileset "fileset", create the associated files as specified in the
+ * attributes of the fileset. The fileset is rooted in a directory whose
+ * pathname is in fileset_path. If the directory exists, meaning that there is
+ * already a fileset, and the fileset_reuse attribute is false, then remove it
+ * and all its contained files and subdirectories. Next, the routine creates a
+ * root directory for the fileset. All the file type filesetentries are cycled
+ * through creating as needed their containing subdirectory trees in the file
+ * system and creating actual files for fileset_preallocpercent of them. The
+ * created files are filled with fse_size bytes of unitialized data.
+ * The routine returns FILEBENCH_ERROR on errors, FILEBENCH_OK on success.
  */
 static int
 fileset_create(fileset_t *fileset)
@@ -1042,7 +1026,7 @@ fileset_create(fileset_t *fileset)
 		reusing = 1;
 
 	/* if exists and resusing, then don't create new */
-	} else if (((stat64(path, &sb) == 0)&& (strlen(path) > 3) &&
+	} else if (((stat64(path, &sb) == 0) && (strlen(path) > 3) &&
 	    (strlen(avd_get_str(fileset->fs_path)) > 2)) &&
 	    avd_get_bool(fileset->fs_reuse)) {
 		reusing = 1;
@@ -1251,9 +1235,10 @@ fileset_delete_all_filesets(void)
 
 	filebench_shm->shm_filesetlist = NULL;
 }
+
 /*
- * Adds an entry to the fileset's file list. Single threaded so
- * no locking needed.
+ * Adds an entry to the fileset's file list. Single threaded,
+ * so no locking needed.
  */
 static void
 fileset_insfilelist(fileset_t *fileset, filesetentry_t *entry)
@@ -1271,8 +1256,8 @@ fileset_insfilelist(fileset_t *fileset, filesetentry_t *entry)
 }
 
 /*
- * Adds an entry to the fileset's directory list. Single
- * threaded so no locking needed.
+ * Adds an entry to the fileset's directory list. Single threaded,
+ * so no locking needed.
  */
 static void
 fileset_insdirlist(fileset_t *fileset, filesetentry_t *entry)
@@ -1290,8 +1275,8 @@ fileset_insdirlist(fileset_t *fileset, filesetentry_t *entry)
 }
 
 /*
- * Adds an entry to the fileset's leaf directory list. Single
- * threaded so no locking needed.
+ * Adds an entry to the fileset's leaf directory list. Single threaded,
+ * so no locking needed.
  */
 static void
 fileset_insleafdirlist(fileset_t *fileset, filesetentry_t *entry)
@@ -1326,16 +1311,15 @@ fileset_entry_compare(const void *node_1, const void *node_2)
 }
 
 /*
- * Obtains a filesetentry entity for a file to be placed in a
- * (sub)directory of a fileset. The size of the file may be
- * specified by fileset_meansize, or calculated from a gamma
- * distribution of parameter fileset_sizegamma and of mean size
- * fileset_meansize. The filesetentry entity is placed on the file
- * list in the specified parent filesetentry entity, which may
- * be a directory filesetentry, or the root filesetentry in the
- * fileset. It is also placed on the fileset's list of all
- * contained files. Returns FILEBENCH_OK if successful or FILEBENCH_ERROR
- * if ipc memory for the path string cannot be allocated.
+ * Obtains a filesetentry entity for a file to be placed in a (sub)directory of
+ * a fileset. The size of the file may be specified by fileset_meansize, or
+ * calculated from a gamma distribution of parameter fileset_sizegamma and of
+ * mean size fileset_meansize. The filesetentry entity is placed on the file
+ * list in the specified parent filesetentry entity, which may be a directory
+ * filesetentry, or the root filesetentry in the fileset. It is also placed on
+ * the fileset's list of all contained files.
+ * Returns FILEBENCH_OK if successful or FILEBENCH_ERROR if ipc memory for the
+ * path string cannot be allocated.
  */
 static int
 fileset_populate_file(fileset_t *fileset, filesetentry_t *parent, int serial)
@@ -1376,7 +1360,7 @@ fileset_populate_file(fileset_t *fileset, filesetentry_t *parent, int serial)
 }
 
 /*
- * Obtaines a filesetentry entity for a leaf directory to be placed in a
+ * Obtains a filesetentry entity for a leaf directory to be placed in a
  * (sub)directory of a fileset. The leaf directory will always be empty so
  * it can be created and deleted (mkdir, rmdir) at will. The filesetentry
  * entity is placed on the leaf directory list in the specified parent
@@ -1421,19 +1405,16 @@ fileset_populate_leafdir(fileset_t *fileset, filesetentry_t *parent, int serial)
 }
 
 /*
- * Creates a directory node in a fileset, by obtaining a
- * filesetentry entity for the node and initializing it
- * according to parameters of the fileset. It determines a
- * directory tree depth and directory width, optionally using
- * a gamma distribution. If its calculated depth is less then
- * its actual depth in the directory tree, it becomes a leaf
- * node and files itself with "width" number of file type
- * filesetentries, otherwise it files itself with "width"
- * number of directory type filesetentries, using recursive
- * calls to fileset_populate_subdir. The end result of the
- * initial call to this routine is a tree of directories of
- * random width and varying depth with sufficient leaf
- * directories to contain all required files.
+ * Creates a directory node in a fileset, by obtaining a filesetentry entity
+ * for the node and initializing it according to parameters of the fileset. It
+ * determines a directory tree depth and directory width, optionally using a
+ * gamma distribution. If its calculated depth is less then its actual depth
+ * in the directory tree, it becomes a leaf node and files itself with "width"
+ * number of file type filesetentries, otherwise it files itself with "width"
+ * number of directory type filesetentries, using recursive calls to
+ * fileset_populate_subdir. The end result of the initial call to this routine
+ * is a tree of directories of random width and varying depth with sufficient
+ * leaf directories to contain all required files.
  * Returns FILEBENCH_OK on success. Returns FILEBENCH_ERROR if ipc path
  * string memory cannot be allocated and returns the error code (currently
  * also FILEBENCH_ERROR) from calls to fileset_populate_file or recursive
@@ -1555,14 +1536,13 @@ fileset_populate_subdir(fileset_t *fileset, filesetentry_t *parent,
 }
 
 /*
- * Populates a fileset with files and subdirectory entries. Uses
- * the supplied fileset_dirwidth and fileset_entries (number of files) to
- * calculate the required fileset_meandepth (of subdirectories) and
- * initialize the fileset_meanwidth and fileset_meansize variables. Then
- * calls fileset_populate_subdir() to do the recursive
- * subdirectory entry creation and leaf file entry creation. All
- * of the above is skipped if the fileset has already been
- * populated. Returns 0 on success, or an error code from the
+ * Populates a fileset with files and subdirectory entries. Uses the supplied
+ * fileset_dirwidth and fileset_entries (number of files) to calculate the
+ * required fileset_meandepth (of subdirectories) and initialize the
+ * fileset_meanwidth and fileset_meansize variables. Then calls
+ * fileset_populate_subdir() to do the recursive subdirectory entry creation
+ * and leaf file entry creation. All of the above is skipped if the fileset has
+ * already been populated. Returns 0 on success, or an error code from the
  * call to fileset_populate_subdir if that call fails.
  */
 static int
@@ -1673,9 +1653,9 @@ exists:
 
 /*
  * Allocates a fileset instance, initializes fileset_dirgamma and
- * fileset_sizegamma default values, and sets the fileset name to the
- * supplied name string. Puts the allocated fileset on the
- * master fileset list and returns a pointer to it.
+ * fileset_sizegamma default values, and sets the fileset name to the supplied
+ * name string. Puts the allocated fileset on the master fileset list and
+ * returns a pointer to it.
  *
  * This routine implements the 'define fileset' calls found in a .f
  * workload, such as in the following example:
@@ -1868,11 +1848,10 @@ fileset_find(char *name)
 }
 
 /*
- * Iterates over all the file sets in the filesetlist,
- * executing the supplied command "*cmd()" on them. Also
- * indicates to the executed command if it is the first
- * time the command has been executed since the current
- * call to fileset_iter.
+ * Iterates over all the file sets in the filesetlist, executing the supplied
+ * command "*cmd()" on them. Also indicates to the executed command if it is
+ * the first time the command has been executed since the current call to
+ * fileset_iter.
  */
 int
 fileset_iter(int (*cmd)(fileset_t *fileset, int first))

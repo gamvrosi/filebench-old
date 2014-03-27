@@ -84,7 +84,7 @@ typedef struct fileset {
 	avd_t		fs_pathstr;	/* Path suffix, if path is var+str */
 	avd_t		fs_entries;	/* Number of entries attr */
 					/* (possibly random) */
-	fbint_t		fs_constentries; /* Constant version of enties attr */
+	fbint_t		fs_constentries; /* Constant version of entries attr */
 	avd_t		fs_leafdirs;	/* Number of leaf directories attr */
 					/* (possibly random) */
 	fbint_t		fs_constleafdirs; /* Constant version of leafdirs */
