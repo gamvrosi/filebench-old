@@ -48,7 +48,7 @@
  * has a tree of directories and files corresponding to the fileset's
  * filesetentry tree.
  *
- * Fileset entities are allocated by fileset_define() which is called from
+ * Fileset entities are allocated by fileset_alloc() which is called from
  * parser_gram.y: parser_fileset_define(). The filesetentry tree corrseponding
  * to the eventual directory and file tree to be instantiated on the storage
  * medium is built by fileset_populate(), which is This routine is called
@@ -1662,7 +1662,7 @@ exists:
  * define fileset name=drew4ever, entries=$nfiles
  */
 fileset_t *
-fileset_define(avd_t name)
+fileset_alloc(avd_t name)
 {
 	fileset_t *fileset;
 
@@ -1671,12 +1671,12 @@ fileset_define(avd_t name)
 
 	if ((fileset = (fileset_t *)ipc_malloc(FILEBENCH_FILESET)) == NULL) {
 		filebench_log(LOG_ERROR,
-		    "fileset_define: Can't malloc fileset");
+		    "fileset_alloc: Can't malloc fileset");
 		return (NULL);
 	}
 
 	filebench_log(LOG_DEBUG_IMPL,
-	    "Defining file %s", avd_get_str(name));
+	    "Allocating file %s", avd_get_str(name));
 
 	(void) ipc_mutex_lock(&filebench_shm->shm_fileset_lock);
 

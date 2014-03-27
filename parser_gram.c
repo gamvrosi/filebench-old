@@ -5763,7 +5763,7 @@ parser_composite_flowop_define(cmd_t *cmd)
 
 
 /*
- * Calls fileset_define() to allocate a fileset with the supplied name and
+ * Calls fileset_alloc() to allocate a fileset with the supplied name and
  * initializes the fileset's pathname attribute, and optionally the
  * fileset_cached, fileset_reuse, fileset_prealloc and fileset_size attributes.
  *
@@ -5790,7 +5790,8 @@ parser_fileset_define_common(cmd_t *cmd)
 		return (NULL);
 	}
 
-	if ((fileset = fileset_define(name)) == NULL) {
+	fileset = fileset_alloc(name);
+	if (!fileset) {
 		filebench_log(LOG_ERROR,
 		    "define file: failed to instantiate file %s\n",
 		    avd_get_str(name));
