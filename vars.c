@@ -195,7 +195,8 @@ avd_get_int(avd_t avd)
 	cvar_t *cvar;
 	var_t *var;
 
-	assert(avd);
+	if (!avd)
+		return 0;
 
 	switch (avd->avd_type) {
 	case AVD_VAL_INT:
