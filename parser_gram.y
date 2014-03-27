@@ -1877,7 +1877,7 @@ main(int argc, char *argv[])
 	eventgen_init();
 	
 	/* Initialize custom variables. */
-	/*ret = init_cvar_library_info(FILEBENCHDIR "/cvars");
+	ret = init_cvar_library_info(FILEBENCHDIR "/cvars");
 	if (ret)
 		filebench_shutdown(1);
 
@@ -1891,7 +1891,7 @@ main(int argc, char *argv[])
 		else
 			parser_list_cvar_types();
 		exit(1);
-	}*/
+	}
 
 	signal(SIGINT, parser_abort);
 
