@@ -6916,6 +6916,12 @@ parser_var_assign_random(char *name, cmd_t *cmd)
 	else
 		rndp->rnd_round = avd_int_alloc(0);
 
+	/* Get the seed for the random variable */
+	if ((attr = get_attr_integer(cmd, FSA_RANDSEED)))
+		rndp->rnd_seed = attr->attr_avd;
+	else
+		rndp->rnd_seed = avd_int_alloc(0);
+
 	/* Get a tablular probablility distribution if there is one */
 	if ((attr = get_attr(cmd, FSA_RANDTABLE))) {
 		rndp->rnd_probtabs = (probtabent_t *)(attr->attr_obj);
@@ -6947,12 +6953,6 @@ parser_var_assign_random(char *name, cmd_t *cmd)
 		/* default to gamma distribution type */
 		rndp->rnd_type |= RAND_TYPE_GAMMA;
 	}
-
-	/* Get the seed for the random variable */
-	if ((attr = get_attr_integer(cmd, FSA_RANDSEED)))
-		rndp->rnd_seed = attr->attr_avd;
-	else
-		rndp->rnd_seed = avd_int_alloc(0);
 
 	/* Get the gamma value of the random distribution */
 	if ((attr = get_attr_integer(cmd, FSA_RANDGAMMA)))
