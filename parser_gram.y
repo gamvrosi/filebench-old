@@ -127,7 +127,6 @@ static void parser_statscmd(cmd_t *cmd);
 static void parser_statsdump(cmd_t *cmd);
 static void parser_statsxmldump(cmd_t *cmd);
 static void parser_statsmultidump(cmd_t *cmd);
-static void parser_usage(cmd_t *cmd);
 static void parser_system(cmd_t *cmd);
 static void parser_statssnap(cmd_t *cmd);
 static void parser_directory(cmd_t *cmd);
@@ -141,7 +140,6 @@ static void parser_sleep(cmd_t *cmd);
 static void parser_sleep_variable(cmd_t *cmd);
 static void parser_warmup(cmd_t *cmd);
 static void parser_warmup_variable(cmd_t *cmd);
-static void parser_help(cmd_t *cmd);
 static void arg_parse(const char *command);
 static void parser_abort(int arg);
 static void parser_version(cmd_t *cmd);
@@ -168,7 +166,7 @@ static void parser_osprof_disable(cmd_t *cmd);
 %token FSC_SLEEP FSC_STATS FSC_SET FSC_SHUTDOWN FSC_LOG
 %token FSC_SYSTEM FSC_FLOWOP FSC_EVENTGEN FSC_ECHO FSC_RUN FSC_PSRUN
 %token FSC_WARMUP FSC_NOUSESTATS FSC_FSCHECK FSC_FSFLUSH
-%token FSC_USAGE FSC_HELP FSC_VERSION FSC_ENABLE FSC_DOMULTISYNC
+%token FSC_VERSION FSC_ENABLE FSC_DOMULTISYNC
 %token FSV_STRING FSV_VAL_INT FSV_VAL_NEGINT FSV_VAL_BOOLEAN FSV_VARIABLE FSV_WHITESTRING
 %token FSV_RANDUNI FSV_RANDTAB FSV_URAND FSV_RAND48
 %token FSE_FILE FSE_PROC FSE_THREAD FSE_CLEAR FSE_SNAP FSE_DUMP
@@ -203,7 +201,7 @@ static void parser_osprof_disable(cmd_t *cmd);
 
 %type <ival> FSC_LIST FSC_DEFINE FSC_SET FSC_RUN FSC_ENABLE FSC_PSRUN
 %type <ival> FSC_DOMULTISYNC
-%type <ival> FSE_FILE FSE_PROC FSE_THREAD FSE_CLEAR FSC_HELP FSC_VERSION
+%type <ival> FSE_FILE FSE_PROC FSE_THREAD FSE_CLEAR FSC_VERSION
 
 %type <sval> name
 %type <ival> entity
@@ -214,7 +212,7 @@ static void parser_osprof_disable(cmd_t *cmd);
 %type <cmd> sleep_command stats_command set_command shutdown_command
 %type <cmd> log_command system_command flowop_command
 %type <cmd> eventgen_command quit_command flowop_list thread_list
-%type <cmd> thread echo_command usage_command help_command
+%type <cmd> thread echo_command 
 %type <cmd> version_command enable_command multisync_command
 %type <cmd> warmup_command fscheck_command fsflush_command
 %type <cmd> set_variable set_random_variable set_custom_variable set_mode
@@ -265,10 +263,8 @@ command:
 | eventgen_command
 | create_command
 | echo_command
-| usage_command
 | fscheck_command
 | fsflush_command
-| help_command
 | list_command
 | log_command
 | run_command
@@ -334,15 +330,6 @@ osprof_disable_command: FSC_OSPROF_DISABLE
 	if (($$ = alloc_cmd()) == NULL)
 		YYERROR;
 	$$->cmd = parser_osprof_disable;
-};
-
-usage_command: FSC_USAGE whitevar_string_list
-{
-	if (($$ = alloc_cmd()) == NULL)
-		YYERROR;
-
-	$$->cmd_param_list = $2;
-	$$->cmd = parser_usage;
 };
 
 enable_command: FSC_ENABLE FSE_MULTI
@@ -940,13 +927,6 @@ psrun_command: FSC_PSRUN
 	$$->cmd = parser_psrun;
 	$$->cmd_qty1 = $2;
 	$$->cmd_qty = $3;
-};
-
-help_command: FSC_HELP
-{
-	if (($$ = alloc_cmd()) == NULL)
-		YYERROR;
-	$$->cmd = parser_help;
 };
 
 flowop_command: FSC_FLOWOP name
@@ -3133,24 +3113,6 @@ parser_run_variable(cmd_t *cmd)
 	parser_filebench_shutdown((cmd_t *)0);
 }
 
-char *usagestr = NULL;
-
-/*
- * Prints usage string if defined, else just a message requesting load of a
- * personality.
- */
-static void
-parser_help(cmd_t *cmd)
-{
-	if (usagestr) {
-		filebench_log(LOG_INFO, "%s", usagestr);
-	} else {
-		filebench_log(LOG_INFO,
-		    "load <personality> (ls "
-		    "%s/workloads for list)", fbbasepath);
-	}
-}
-
 /*
  * Establishes multi-client synchronization socket with synch server.
  */
@@ -3665,45 +3627,6 @@ parser_osprof_disable(cmd_t *cmd)
 {
 	filebench_shm->osprof_enabled = 0;
 	filebench_log(LOG_INFO, "OSprof disabled");
-}
-
-/*
- * Adds the string supplied as the argument to the usage command
- * to the end of the string printed by the help command.
- */
-static void
-parser_usage(cmd_t *cmd)
-{
-	char *string;
-	char *newusage;
-
-	if (cmd->cmd_param_list == NULL)
-		return;
-
-	string = parser_list2string(cmd->cmd_param_list);
-
-	if (string == NULL)
-		return;
-
-	if (dofile == DOFILE_TRUE)
-		return;
-
-	if (usagestr == NULL) {
-		newusage = malloc(strlen(string) + 2);
-		*newusage = 0;
-	} else {
-		newusage = malloc(strlen(usagestr) + strlen(string) + 2);
-		(void) strcpy(newusage, usagestr);
-	}
-	(void) strcat(newusage, "\n");
-	(void) strcat(newusage, string);
-
-	if (usagestr)
-		free(usagestr);
-
-	usagestr = newusage;
-
-	filebench_log(LOG_INFO, "%s", string);
 }
 
 /*

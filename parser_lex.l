@@ -75,7 +75,6 @@ exit		        { return FSC_QUIT; }
 flowop		        { return FSC_FLOWOP; }
 fscheck		        { return FSC_FSCHECK; }
 fsflush		        { return FSC_FSFLUSH; }
-help		        { return FSC_HELP; }
 list		        { return FSC_LIST; }
 log		        { return FSC_LOG; }
 nousestats		{ return FSC_NOUSESTATS; }
@@ -86,7 +85,6 @@ shutdown                { return FSC_SHUTDOWN; }
 sleep                   { return FSC_SLEEP; }
 stats                   { return FSC_STATS; }
 system                  { return FSC_SYSTEM; }
-usage                   { return FSC_USAGE; }
 version                 { return FSC_VERSION; }
 enable_osprof		{ return FSC_OSPROF_ENABLE; }
 disable_osprof		{ return FSC_OSPROF_DISABLE; }
@@ -164,12 +162,12 @@ type			{ return FSA_TYPE; }
 useism                  { return FSA_USEISM;}
 value                   { return FSA_VALUE;}
 workingset              { return FSA_WSS; }
+noreadahead             { return FSA_NOREADAHEAD; }
 
 uniform                 { return FSV_RANDUNI; }
 tabular			{ return FSV_RANDTAB; }
 urandom			{ return FSV_URAND; }
 rand48			{ return FSV_RAND48; }
-noreadahead             { return FSA_NOREADAHEAD; }
 
 
 <INITIAL>\"			{ 

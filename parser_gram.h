@@ -59,108 +59,106 @@
      FSC_NOUSESTATS = 275,
      FSC_FSCHECK = 276,
      FSC_FSFLUSH = 277,
-     FSC_USAGE = 278,
-     FSC_HELP = 279,
-     FSC_VERSION = 280,
-     FSC_ENABLE = 281,
-     FSC_DOMULTISYNC = 282,
-     FSV_STRING = 283,
-     FSV_VAL_INT = 284,
-     FSV_VAL_NEGINT = 285,
-     FSV_VAL_BOOLEAN = 286,
-     FSV_VARIABLE = 287,
-     FSV_WHITESTRING = 288,
-     FSV_RANDUNI = 289,
-     FSV_RANDTAB = 290,
-     FSV_URAND = 291,
-     FSV_RAND48 = 292,
-     FSE_FILE = 293,
-     FSE_PROC = 294,
-     FSE_THREAD = 295,
-     FSE_CLEAR = 296,
-     FSE_SNAP = 297,
-     FSE_DUMP = 298,
-     FSE_DIRECTORY = 299,
-     FSE_COMMAND = 300,
-     FSE_FILESET = 301,
-     FSE_XMLDUMP = 302,
-     FSE_RAND = 303,
-     FSE_MODE = 304,
-     FSE_MULTI = 305,
-     FSE_MULTIDUMP = 306,
-     FSK_SEPLST = 307,
-     FSK_OPENLST = 308,
-     FSK_CLOSELST = 309,
-     FSK_OPENPAR = 310,
-     FSK_CLOSEPAR = 311,
-     FSK_ASSIGN = 312,
-     FSK_IN = 313,
-     FSK_QUOTE = 314,
-     FSA_SIZE = 315,
-     FSA_PREALLOC = 316,
-     FSA_PARALLOC = 317,
-     FSA_PATH = 318,
-     FSA_REUSE = 319,
-     FSA_PROCESS = 320,
-     FSA_MEMSIZE = 321,
-     FSA_RATE = 322,
-     FSA_CACHED = 323,
-     FSA_READONLY = 324,
-     FSA_TRUSTTREE = 325,
-     FSA_IOSIZE = 326,
-     FSA_FILE = 327,
-     FSA_WSS = 328,
-     FSA_NAME = 329,
-     FSA_RANDOM = 330,
-     FSA_INSTANCES = 331,
-     FSA_DSYNC = 332,
-     FSA_TARGET = 333,
-     FSA_ITERS = 334,
-     FSA_NICE = 335,
-     FSA_VALUE = 336,
-     FSA_BLOCKING = 337,
-     FSA_HIGHWATER = 338,
-     FSA_DIRECTIO = 339,
-     FSA_DIRWIDTH = 340,
-     FSA_FD = 341,
-     FSA_SRCFD = 342,
-     FSA_ROTATEFD = 343,
-     FSA_ENTRIES = 344,
-     FSA_DIRDEPTHRV = 345,
-     FSA_DIRGAMMA = 346,
-     FSA_USEISM = 347,
-     FSA_TYPE = 348,
-     FSA_RANDTABLE = 349,
-     FSA_RANDSRC = 350,
-     FSA_ROUND = 351,
-     FSA_LEAFDIRS = 352,
-     FSA_INDEXED = 353,
-     FSA_FSTYPE = 354,
-     FSA_RANDSEED = 355,
-     FSA_RANDGAMMA = 356,
-     FSA_RANDMEAN = 357,
-     FSA_MIN = 358,
-     FSA_MAX = 359,
-     FSA_MASTER = 360,
-     FSA_CLIENT = 361,
-     FSS_TYPE = 362,
-     FSS_SEED = 363,
-     FSS_GAMMA = 364,
-     FSS_MEAN = 365,
-     FSS_MIN = 366,
-     FSS_SRC = 367,
-     FSS_ROUND = 368,
-     FSA_LVAR_ASSIGN = 369,
-     FSA_ALLDONE = 370,
-     FSA_FIRSTDONE = 371,
-     FSA_TIMEOUT = 372,
-     FSC_OSPROF_ENABLE = 373,
-     FSC_OSPROF_DISABLE = 374,
-     FSA_NOREADAHEAD = 375,
-     FSA_IOPRIO = 376,
-     FSA_WRITEONLY = 377,
-     FSE_CVAR = 378,
-     FSA_PARAMETERS = 379
+     FSC_VERSION = 278,
+     FSC_ENABLE = 279,
+     FSC_DOMULTISYNC = 280,
+     FSV_STRING = 281,
+     FSV_VAL_INT = 282,
+     FSV_VAL_NEGINT = 283,
+     FSV_VAL_BOOLEAN = 284,
+     FSV_VARIABLE = 285,
+     FSV_WHITESTRING = 286,
+     FSV_RANDUNI = 287,
+     FSV_RANDTAB = 288,
+     FSV_URAND = 289,
+     FSV_RAND48 = 290,
+     FSE_FILE = 291,
+     FSE_PROC = 292,
+     FSE_THREAD = 293,
+     FSE_CLEAR = 294,
+     FSE_SNAP = 295,
+     FSE_DUMP = 296,
+     FSE_DIRECTORY = 297,
+     FSE_COMMAND = 298,
+     FSE_FILESET = 299,
+     FSE_XMLDUMP = 300,
+     FSE_RAND = 301,
+     FSE_MODE = 302,
+     FSE_MULTI = 303,
+     FSE_MULTIDUMP = 304,
+     FSK_SEPLST = 305,
+     FSK_OPENLST = 306,
+     FSK_CLOSELST = 307,
+     FSK_OPENPAR = 308,
+     FSK_CLOSEPAR = 309,
+     FSK_ASSIGN = 310,
+     FSK_IN = 311,
+     FSK_QUOTE = 312,
+     FSA_SIZE = 313,
+     FSA_PREALLOC = 314,
+     FSA_PARALLOC = 315,
+     FSA_PATH = 316,
+     FSA_REUSE = 317,
+     FSA_PROCESS = 318,
+     FSA_MEMSIZE = 319,
+     FSA_RATE = 320,
+     FSA_CACHED = 321,
+     FSA_READONLY = 322,
+     FSA_TRUSTTREE = 323,
+     FSA_IOSIZE = 324,
+     FSA_FILE = 325,
+     FSA_WSS = 326,
+     FSA_NAME = 327,
+     FSA_RANDOM = 328,
+     FSA_INSTANCES = 329,
+     FSA_DSYNC = 330,
+     FSA_TARGET = 331,
+     FSA_ITERS = 332,
+     FSA_NICE = 333,
+     FSA_VALUE = 334,
+     FSA_BLOCKING = 335,
+     FSA_HIGHWATER = 336,
+     FSA_DIRECTIO = 337,
+     FSA_DIRWIDTH = 338,
+     FSA_FD = 339,
+     FSA_SRCFD = 340,
+     FSA_ROTATEFD = 341,
+     FSA_ENTRIES = 342,
+     FSA_DIRDEPTHRV = 343,
+     FSA_DIRGAMMA = 344,
+     FSA_USEISM = 345,
+     FSA_TYPE = 346,
+     FSA_RANDTABLE = 347,
+     FSA_RANDSRC = 348,
+     FSA_ROUND = 349,
+     FSA_LEAFDIRS = 350,
+     FSA_INDEXED = 351,
+     FSA_FSTYPE = 352,
+     FSA_RANDSEED = 353,
+     FSA_RANDGAMMA = 354,
+     FSA_RANDMEAN = 355,
+     FSA_MIN = 356,
+     FSA_MAX = 357,
+     FSA_MASTER = 358,
+     FSA_CLIENT = 359,
+     FSS_TYPE = 360,
+     FSS_SEED = 361,
+     FSS_GAMMA = 362,
+     FSS_MEAN = 363,
+     FSS_MIN = 364,
+     FSS_SRC = 365,
+     FSS_ROUND = 366,
+     FSA_LVAR_ASSIGN = 367,
+     FSA_ALLDONE = 368,
+     FSA_FIRSTDONE = 369,
+     FSA_TIMEOUT = 370,
+     FSC_OSPROF_ENABLE = 371,
+     FSC_OSPROF_DISABLE = 372,
+     FSA_NOREADAHEAD = 373,
+     FSA_IOPRIO = 374,
+     FSA_WRITEONLY = 375,
+     FSE_CVAR = 376,
+     FSA_PARAMETERS = 377
    };
 #endif
 /* Tokens.  */
@@ -184,108 +182,106 @@
 #define FSC_NOUSESTATS 275
 #define FSC_FSCHECK 276
 #define FSC_FSFLUSH 277
-#define FSC_USAGE 278
-#define FSC_HELP 279
-#define FSC_VERSION 280
-#define FSC_ENABLE 281
-#define FSC_DOMULTISYNC 282
-#define FSV_STRING 283
-#define FSV_VAL_INT 284
-#define FSV_VAL_NEGINT 285
-#define FSV_VAL_BOOLEAN 286
-#define FSV_VARIABLE 287
-#define FSV_WHITESTRING 288
-#define FSV_RANDUNI 289
-#define FSV_RANDTAB 290
-#define FSV_URAND 291
-#define FSV_RAND48 292
-#define FSE_FILE 293
-#define FSE_PROC 294
-#define FSE_THREAD 295
-#define FSE_CLEAR 296
-#define FSE_SNAP 297
-#define FSE_DUMP 298
-#define FSE_DIRECTORY 299
-#define FSE_COMMAND 300
-#define FSE_FILESET 301
-#define FSE_XMLDUMP 302
-#define FSE_RAND 303
-#define FSE_MODE 304
-#define FSE_MULTI 305
-#define FSE_MULTIDUMP 306
-#define FSK_SEPLST 307
-#define FSK_OPENLST 308
-#define FSK_CLOSELST 309
-#define FSK_OPENPAR 310
-#define FSK_CLOSEPAR 311
-#define FSK_ASSIGN 312
-#define FSK_IN 313
-#define FSK_QUOTE 314
-#define FSA_SIZE 315
-#define FSA_PREALLOC 316
-#define FSA_PARALLOC 317
-#define FSA_PATH 318
-#define FSA_REUSE 319
-#define FSA_PROCESS 320
-#define FSA_MEMSIZE 321
-#define FSA_RATE 322
-#define FSA_CACHED 323
-#define FSA_READONLY 324
-#define FSA_TRUSTTREE 325
-#define FSA_IOSIZE 326
-#define FSA_FILE 327
-#define FSA_WSS 328
-#define FSA_NAME 329
-#define FSA_RANDOM 330
-#define FSA_INSTANCES 331
-#define FSA_DSYNC 332
-#define FSA_TARGET 333
-#define FSA_ITERS 334
-#define FSA_NICE 335
-#define FSA_VALUE 336
-#define FSA_BLOCKING 337
-#define FSA_HIGHWATER 338
-#define FSA_DIRECTIO 339
-#define FSA_DIRWIDTH 340
-#define FSA_FD 341
-#define FSA_SRCFD 342
-#define FSA_ROTATEFD 343
-#define FSA_ENTRIES 344
-#define FSA_DIRDEPTHRV 345
-#define FSA_DIRGAMMA 346
-#define FSA_USEISM 347
-#define FSA_TYPE 348
-#define FSA_RANDTABLE 349
-#define FSA_RANDSRC 350
-#define FSA_ROUND 351
-#define FSA_LEAFDIRS 352
-#define FSA_INDEXED 353
-#define FSA_FSTYPE 354
-#define FSA_RANDSEED 355
-#define FSA_RANDGAMMA 356
-#define FSA_RANDMEAN 357
-#define FSA_MIN 358
-#define FSA_MAX 359
-#define FSA_MASTER 360
-#define FSA_CLIENT 361
-#define FSS_TYPE 362
-#define FSS_SEED 363
-#define FSS_GAMMA 364
-#define FSS_MEAN 365
-#define FSS_MIN 366
-#define FSS_SRC 367
-#define FSS_ROUND 368
-#define FSA_LVAR_ASSIGN 369
-#define FSA_ALLDONE 370
-#define FSA_FIRSTDONE 371
-#define FSA_TIMEOUT 372
-#define FSC_OSPROF_ENABLE 373
-#define FSC_OSPROF_DISABLE 374
-#define FSA_NOREADAHEAD 375
-#define FSA_IOPRIO 376
-#define FSA_WRITEONLY 377
-#define FSE_CVAR 378
-#define FSA_PARAMETERS 379
+#define FSC_VERSION 278
+#define FSC_ENABLE 279
+#define FSC_DOMULTISYNC 280
+#define FSV_STRING 281
+#define FSV_VAL_INT 282
+#define FSV_VAL_NEGINT 283
+#define FSV_VAL_BOOLEAN 284
+#define FSV_VARIABLE 285
+#define FSV_WHITESTRING 286
+#define FSV_RANDUNI 287
+#define FSV_RANDTAB 288
+#define FSV_URAND 289
+#define FSV_RAND48 290
+#define FSE_FILE 291
+#define FSE_PROC 292
+#define FSE_THREAD 293
+#define FSE_CLEAR 294
+#define FSE_SNAP 295
+#define FSE_DUMP 296
+#define FSE_DIRECTORY 297
+#define FSE_COMMAND 298
+#define FSE_FILESET 299
+#define FSE_XMLDUMP 300
+#define FSE_RAND 301
+#define FSE_MODE 302
+#define FSE_MULTI 303
+#define FSE_MULTIDUMP 304
+#define FSK_SEPLST 305
+#define FSK_OPENLST 306
+#define FSK_CLOSELST 307
+#define FSK_OPENPAR 308
+#define FSK_CLOSEPAR 309
+#define FSK_ASSIGN 310
+#define FSK_IN 311
+#define FSK_QUOTE 312
+#define FSA_SIZE 313
+#define FSA_PREALLOC 314
+#define FSA_PARALLOC 315
+#define FSA_PATH 316
+#define FSA_REUSE 317
+#define FSA_PROCESS 318
+#define FSA_MEMSIZE 319
+#define FSA_RATE 320
+#define FSA_CACHED 321
+#define FSA_READONLY 322
+#define FSA_TRUSTTREE 323
+#define FSA_IOSIZE 324
+#define FSA_FILE 325
+#define FSA_WSS 326
+#define FSA_NAME 327
+#define FSA_RANDOM 328
+#define FSA_INSTANCES 329
+#define FSA_DSYNC 330
+#define FSA_TARGET 331
+#define FSA_ITERS 332
+#define FSA_NICE 333
+#define FSA_VALUE 334
+#define FSA_BLOCKING 335
+#define FSA_HIGHWATER 336
+#define FSA_DIRECTIO 337
+#define FSA_DIRWIDTH 338
+#define FSA_FD 339
+#define FSA_SRCFD 340
+#define FSA_ROTATEFD 341
+#define FSA_ENTRIES 342
+#define FSA_DIRDEPTHRV 343
+#define FSA_DIRGAMMA 344
+#define FSA_USEISM 345
+#define FSA_TYPE 346
+#define FSA_RANDTABLE 347
+#define FSA_RANDSRC 348
+#define FSA_ROUND 349
+#define FSA_LEAFDIRS 350
+#define FSA_INDEXED 351
+#define FSA_FSTYPE 352
+#define FSA_RANDSEED 353
+#define FSA_RANDGAMMA 354
+#define FSA_RANDMEAN 355
+#define FSA_MIN 356
+#define FSA_MAX 357
+#define FSA_MASTER 358
+#define FSA_CLIENT 359
+#define FSS_TYPE 360
+#define FSS_SEED 361
+#define FSS_GAMMA 362
+#define FSS_MEAN 363
+#define FSS_MIN 364
+#define FSS_SRC 365
+#define FSS_ROUND 366
+#define FSA_LVAR_ASSIGN 367
+#define FSA_ALLDONE 368
+#define FSA_FIRSTDONE 369
+#define FSA_TIMEOUT 370
+#define FSC_OSPROF_ENABLE 371
+#define FSC_OSPROF_DISABLE 372
+#define FSA_NOREADAHEAD 373
+#define FSA_IOPRIO 374
+#define FSA_WRITEONLY 375
+#define FSE_CVAR 376
+#define FSA_PARAMETERS 377
 
 
 
@@ -295,7 +291,7 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 153 "parser_gram.y"
+#line 151 "parser_gram.y"
 
 	int64_t		 ival;
 	unsigned char	 bval;
@@ -310,7 +306,7 @@ typedef union YYSTYPE
 
 
 /* Line 1676 of yacc.c  */
-#line 314 "parser_gram.h"
+#line 310 "parser_gram.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
