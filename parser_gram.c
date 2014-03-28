@@ -5769,7 +5769,7 @@ parser_composite_flowop_define(cmd_t *cmd)
  *
  */
 static fileset_t *
-parser_fileset_define_common(cmd_t *cmd)
+parser_fileset_init_common(cmd_t *cmd)
 {
 	fileset_t *fileset;
 	avd_t name;
@@ -5883,7 +5883,7 @@ parser_fileset_define_common(cmd_t *cmd)
 }
 
 /*
- * Calls parser_fileset_define_common() to allocate a fileset with
+ * Calls parser_fileset_init_common() to allocate a fileset with
  * one entry and optionally the fileset_prealloc. sets the fileset_entries,
  * fileset_dirwidth, fileset_dirgamma, and fileset_sizegamma attributes
  * to appropriate values for emulating the old "fileobj" entity
@@ -5891,9 +5891,9 @@ parser_fileset_define_common(cmd_t *cmd)
 static void
 parser_file_define(cmd_t *cmd)
 {
-	fileset_t *fileset;
+	fileset_t *fileset = parser_fileset_init_common(cmd);
 
-	if ((fileset = parser_fileset_define_common(cmd)) == NULL) {
+	if (!fileset) {
 		filebench_log(LOG_ERROR,
 		    "define file: failed to instantiate file");
 		filebench_shutdown(1);
@@ -5915,7 +5915,7 @@ parser_file_define(cmd_t *cmd)
 }
 
 /*
- * Calls parser_fileset_define_common() to allocate a fileset with the
+ * Calls parser_fileset_init_common() to allocate a fileset with the
  * supplied name and initializes the fileset's fileset_preallocpercent,
  * fileset_prealloc, fileset_entries, fileset_dirwidth, fileset_dirgamma,
  * and fileset_sizegamma attributes.
@@ -5923,10 +5923,10 @@ parser_file_define(cmd_t *cmd)
 static void
 parser_fileset_define(cmd_t *cmd)
 {
-	fileset_t *fileset;
+	fileset_t *fileset = parser_fileset_init_common(cmd);
 	attr_t *attr;
 
-	if ((fileset = parser_fileset_define_common(cmd)) == NULL) {
+	if (!fileset) {
 		filebench_log(LOG_ERROR,
 		    "define fileset: failed to instantiate fileset");
 		filebench_shutdown(1);
