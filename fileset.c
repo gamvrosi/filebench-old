@@ -63,6 +63,11 @@
  * instantiate all the files in the fileset before trying to use them.
  */
 
+/* Prefix for files created by filebench. Helps telling apart what's imported
+ * from what's generated
+ * TODO: Make a parameter of define/import commands */
+#define	FB_PREFIX "fb"
+
 /* maximum parallel allocation control */
 #define	MAX_PARALLOC_THREADS 32
 
@@ -1345,7 +1350,7 @@ fileset_populate_file(fileset_t *fileset, filesetentry_t *parent, int serial)
 	entry->fse_fileset = fileset;
 	fileset_insfilelist(fileset, entry);
 
-	(void) snprintf(tmpname, sizeof (tmpname), "%08d", serial);
+	(void) snprintf(tmpname, sizeof(tmpname), FB_PREFIX "%08d", serial);
 	if ((entry->fse_path = (char *)ipc_pathalloc(tmpname)) == NULL) {
 		filebench_log(LOG_ERROR,
 		    "fileset_populate_file: Can't alloc path string");
@@ -1393,7 +1398,7 @@ fileset_populate_leafdir(fileset_t *fileset, filesetentry_t *parent, int serial)
 	entry->fse_fileset = fileset;
 	fileset_insleafdirlist(fileset, entry);
 
-	(void) snprintf(tmpname, sizeof (tmpname), "%08d", serial);
+	(void) snprintf(tmpname, sizeof(tmpname), FB_PREFIX "%08d", serial);
 	if ((entry->fse_path = (char *)ipc_pathalloc(tmpname)) == NULL) {
 		filebench_log(LOG_ERROR,
 		    "fileset_populate_file: Can't alloc path string");
@@ -1446,7 +1451,7 @@ fileset_populate_subdir(fileset_t *fileset, filesetentry_t *parent,
 	index = fileset->fs_idle_dirs++;
 	(void) ipc_mutex_unlock(&fileset->fs_pick_lock);
 
-	(void) snprintf(tmpname, sizeof (tmpname), "%08d", serial);
+	(void) snprintf(tmpname, sizeof(tmpname), FB_PREFIX "%08d", serial);
 	if ((entry->fse_path = (char *)ipc_pathalloc(tmpname)) == NULL) {
 		filebench_log(LOG_ERROR,
 		    "fileset_populate_subdir: Can't alloc path string");
