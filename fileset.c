@@ -2141,6 +2141,9 @@ fileset_createsets()
 			return ret;
 		}
 
+		if (filebench_shm->shm_debug_level >= LOG_DEBUG_IMPL)
+			fileset_print(list, 1);
+
 		ret = fileset_create(list);
 		if (ret) {
 			fileset_getpath(list, path, MAXPATHLEN);
@@ -2279,5 +2282,48 @@ fileset_print(fileset_t *fileset, int first)
 		    (u_longlong_t)avd_get_int(fileset->fs_dirwidth),
 		    (u_longlong_t)fileset->fs_constentries);
 	}
+
+	if (filebench_shm->shm_debug_level >= LOG_DEBUG_IMPL) {
+		filesetentry_t *cur;
+		char *fpath;
+
+		/* Print fileset path */
+		filebench_log(LOG_INFO, "Printing contents of fileset %s.",
+			avd_get_str(fileset->fs_name));
+
+		/* Print dir list */
+		filebench_log(LOG_INFO, "  Inner directories:");
+		cur = fileset->fs_dirlist;
+		while (cur != NULL) {
+			fpath = fileset_resolvepath(cur);
+			filebench_log(LOG_INFO, "  %s (d=%d)",
+				fpath, cur->fse_depth);
+			free(fpath);
+			cur = cur->fse_nextoftype;
+		}
+
+		/* Print leaf dir list */
+		filebench_log(LOG_INFO, "  Leaf directories:");
+		cur = fileset->fs_leafdirlist;
+		while (cur != NULL) {
+			fpath = fileset_resolvepath(cur);
+			filebench_log(LOG_INFO, "  %s (d=%d)",
+				fpath, cur->fse_depth);
+			free(fpath);
+			cur = cur->fse_nextoftype;
+		}
+
+		/* Print file list */
+		filebench_log(LOG_INFO, "  Files:");
+		cur = fileset->fs_filelist;
+		while (cur != NULL) {
+			fpath = fileset_resolvepath(cur);
+			filebench_log(LOG_INFO, "  %s (d=%d), %zdb",
+				fpath, cur->fse_depth, cur->fse_size);
+			free(fpath);
+			cur = cur->fse_nextoftype;
+		}
+	}
+
 	return (FILEBENCH_OK);
 }
