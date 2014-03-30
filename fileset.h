@@ -42,6 +42,7 @@
 #define	FSE_BUSY		0x10
 #define	FSE_REUSING		0x20
 #define	FSE_THRD_WAITNG		0x40
+#define FSE_IMPORTED		0x80
 
 typedef struct filesetentry {
 	struct filesetentry	*fse_next;	/* master list of entries */
@@ -110,6 +111,7 @@ typedef struct fileset {
 	int		fs_realfiles;	/* Actual files */
 	int		fs_realleafdirs; /* Actual explicit leaf directories */
 	off64_t		fs_bytes;	/* Total space consumed by files */
+	short int	fs_import;	/* Is this fileset imported? */
 
 	int64_t		fs_idle_files;	/* number of files NOT busy */
 	pthread_cond_t	fs_idle_files_cv; /* idle files condition variable */

@@ -32,6 +32,8 @@
 #include <libgen.h>
 #include <sys/mman.h>
 #include <sys/shm.h>
+#include <fts.h>
+#include <sys/stat.h>
 
 #include "filebench.h"
 #include "fileset.h"
@@ -40,27 +42,21 @@
 #include "fsplug.h"
 
 /*
- * File sets, of type fileset_t, are entities which contain information about
- * collections of files and subdirectories in Filebench. The fileset, once
- * populated, consists of a tree of fileset entries of type filesetentry_t
- * which specify files and directories. The fileset is rooted in a directory
- * specified by fileset_path, and once the populated fileset has been created,
- * has a tree of directories and files corresponding to the fileset's
- * filesetentry tree.
+ * File sets (fileset_t) are entities containing information about collections
+ * of files and subdirectories used by the Filebench workloads. Once populated,
+ * the fileset consists of a tree of fileset entries (filesetentry_t) that
+ * represent files, inner, and leaf directories. The fileset is rooted in a
+ * directory specified by fileset_path (or fileset_path and fileset_path_str
+ * if path=$variable/string).
  *
- * Fileset entities are allocated by fileset_alloc() which is called from
- * parser_gram.y: parser_fileset_define(). The filesetentry tree corrseponding
- * to the eventual directory and file tree to be instantiated on the storage
- * medium is built by fileset_populate(), which is This routine is called
- * from fileset_createset(), which is in turn called by fileset_createset().
- * After calling fileset_populate(), fileset_createset() will call
- * fileset_create() to pre-allocate designated files and directories.
+ * Filesets are allocated by fileset_alloc() via parser_fileset_define(), the
+ * function invoked by the parser. Once "create filesets" or "run" is invoked,
+ * fileset_createsets() creates all filesets. Fileset creation is a two-phase
+ * process. First, the filesetentry tree described above is built (populated)
+ * in memory by fileset_populate(). Then, fileset_create() instantiates the
+ * fileset on the storage medium by pre-allocating designated files and dirs.
  *
- * Fileset_createset() is called from parser_gram.y: parser_create_fileset()
- * when a "create fileset" or "run" command is encountered. When the
- * "create fileset" command is used, it is generally paired with
- * a "create processes" command, and must appear first, in order to
- * instantiate all the files in the fileset before trying to use them.
+ * Note that files are implemented as filesets that comprise a single file.
  */
 
 /* Prefix for files created by filebench. Helps telling apart what's imported
@@ -70,6 +66,14 @@
 
 /* maximum parallel allocation control */
 #define	MAX_PARALLOC_THREADS 32
+
+/* Used by during import to keep track of parent/child relations between
+ * files/dirs, as well as their depth */
+struct fse_stack {
+	filesetentry_t *fse;
+	int level;
+	struct fse_stack *fse_next;
+};
 
 /*
  * returns pointer to file or fileset string, as appropriate
@@ -111,7 +115,7 @@ void
 fileset_usage(void)
 {
 	(void) fprintf(stderr,
-	    "define [file name=<name> | fileset name=<name>],path=<pathname>,"
+	    "define [file | fileset]  name=<str>, path=[<var>/]<str>,"
 	    ",entries=<number>\n");
 	(void) fprintf(stderr,
 	    "		        [,filesize=[size]]\n");
@@ -123,9 +127,16 @@ fileset_usage(void)
 	    "		        [,dirgamma=[100-10000]] "
 	    "(Gamma * 1000)\n");
 	(void) fprintf(stderr,
-	    "		        [,sizegamma=[100-10000]] (Gamma * 1000)\n");
-	(void) fprintf(stderr,
 	    "		        [,prealloc=[percent]]\n");
+	(void) fprintf(stderr, "		        [,paralloc]\n");
+	(void) fprintf(stderr, "		        [,reuse]\n");
+	(void) fprintf(stderr, "\n");
+	(void) fprintf(stderr,
+	    "import [file | fileset] name=<str>, path=[<var>/]<str>\n");
+	(void) fprintf(stderr,
+	    "                  ,<entries=<number> | prealloc=<percent>>\n");
+	(void) fprintf(stderr,
+	    "		        [,filesize=[size]]\n");
 	(void) fprintf(stderr, "		        [,paralloc]\n");
 	(void) fprintf(stderr, "		        [,reuse]\n");
 	(void) fprintf(stderr, "\n");
@@ -262,10 +273,8 @@ void
 fileset_getpath(fileset_t *fileset, char *dest, int len)
 {
 	(void) fb_strlcpy(dest, avd_get_str(fileset->fs_path), len);
-	if (avd_get_str(fileset->fs_pathstr) != NULL) {
-		(void) fb_strlcat(dest, "/", len);
+	if (avd_get_str(fileset->fs_pathstr) != NULL)
 		(void) fb_strlcat(dest, avd_get_str(fileset->fs_pathstr), len);
-	}
 }
 
 /*
@@ -557,7 +566,7 @@ fileset_pickreset(fileset_t *fileset, int entry_type)
 			entry->fse_open_cnt = 0;
 			fileset_move_entry(&fileset->fs_noex_files,
 			    &fileset->fs_free_files, entry);
-			entry =  AVL_NEXT(&fileset->fs_noex_files, entry);
+			entry = AVL_NEXT(&fileset->fs_noex_files, entry);
 		}
 
 		/* free up any existing files */
@@ -1039,20 +1048,25 @@ fileset_create(fileset_t *fileset)
 		reusing = 0;
 	}
 
-	if (!reusing) {
+	if (!fileset->fs_import && !reusing) {
 		/* Remove existing */
 		filebench_log(LOG_INFO,
 		    "Removing %s tree (if exists)", fileset_name);
 
 		FB_RECUR_RM(path);
-	} else {
+	} else if (reusing) {
 		/* we are re-using */
 		filebench_log(LOG_INFO, "Reusing existing %s tree",
+							fileset_name);
+	} else if (fileset->fs_import) {
+		/* we are importing */
+		filebench_log(LOG_INFO, "Importing existing %s tree",
 							fileset_name);
 	}
 
 	/* make the filesets directory tree unless in reuse mode */
-	if (!reusing && (avd_get_bool(fileset->fs_prealloc))) {
+	if (!reusing && (avd_get_bool(fileset->fs_prealloc)) &&
+		!fileset->fs_import) {
 		filebench_log(LOG_INFO,
 			"Pre-allocating directories in %s tree", fileset_name);
 
@@ -1075,11 +1089,29 @@ fileset_create(fileset_t *fileset)
 	while ((entry = fileset_pick(fileset,
 	    FILESET_PICKFREE | FILESET_PICKFILE, 0, 0))) {
 		pthread_t tid;
-		int newrand;
 
-		newrand = rand();
+		if (fileset->fs_import) {
+			/* XXX is this needed? */
+			if (reusing)
+				entry->fse_flags |= FSE_REUSING;
+			else
+				entry->fse_flags &= (~FSE_REUSING);
 
-		if (randno && newrand <= randno) {
+			if (entry->fse_flags & FSE_IMPORTED) {
+				preallocated++;
+
+				/* unbusy the unallocated entry,
+				 * and mark as existing */
+				fileset_unbusy(entry, TRUE, TRUE, 0);
+			} else {
+				fileset_unbusy(entry, TRUE, FALSE, 0);
+			}
+
+			continue;
+		}
+
+		/* Decide whether to instantiate this file */
+		if (randno && rand() <= randno) {
 			/* unbusy the unallocated entry */
 			fileset_unbusy(entry, TRUE, FALSE, 0);
 			continue;
@@ -1146,13 +1178,28 @@ fileset_create(fileset_t *fileset)
 	while ((entry = fileset_pick(fileset,
 	    FILESET_PICKFREE | FILESET_PICKLEAFDIR, 0, 0))) {
 
+		if (fileset->fs_import) {
+			/* XXX is this needed? */
+			if (reusing)
+				entry->fse_flags |= FSE_REUSING;
+			else
+				entry->fse_flags &= (~FSE_REUSING);
+
+			/* unbusy the unallocated entry, mark as existing */
+			if (entry->fse_flags & FSE_IMPORTED)
+				fileset_unbusy(entry, TRUE, TRUE, 0);
+			else
+				fileset_unbusy(entry, TRUE, FALSE, 0);
+
+			continue;
+		}
+
+		/* Decide whether to instantiate this leaf dir */
 		if (rand() < randno) {
 			/* unbusy the unallocated entry */
 			fileset_unbusy(entry, TRUE, FALSE, 0);
 			continue;
 		}
-
-		preallocated++;
 
 		if (reusing)
 			entry->fse_flags |= FSE_REUSING;
@@ -1327,9 +1374,10 @@ fileset_entry_compare(const void *node_1, const void *node_2)
  * path string cannot be allocated.
  */
 static int
-fileset_populate_file(fileset_t *fileset, filesetentry_t *parent, int serial)
+fileset_populate_file(fileset_t *fileset, filesetentry_t *parent, off64_t size,
+	void *name, int isimported, int depth)
 {
-	char tmpname[16];
+	char tmp[MAXPATHLEN];
 	filesetentry_t *entry;
 	uint_t index;
 
@@ -1337,7 +1385,7 @@ fileset_populate_file(fileset_t *fileset, filesetentry_t *parent, int serial)
 	    == NULL) {
 		filebench_log(LOG_ERROR,
 		    "fileset_populate_file: Can't malloc filesetentry");
-		return (FILEBENCH_ERROR);
+		return FILEBENCH_ERROR;
 	}
 
 	/* Another currently idle file */
@@ -1345,23 +1393,42 @@ fileset_populate_file(fileset_t *fileset, filesetentry_t *parent, int serial)
 	index = fileset->fs_idle_files++;
 	(void) ipc_mutex_unlock(&fileset->fs_pick_lock);
 
+	entry->fse_depth = depth;
 	entry->fse_index = index;
 	entry->fse_parent = parent;
 	entry->fse_fileset = fileset;
 	fileset_insfilelist(fileset, entry);
 
-	(void) snprintf(tmpname, sizeof(tmpname), FB_PREFIX "%08d", serial);
-	if ((entry->fse_path = (char *)ipc_pathalloc(tmpname)) == NULL) {
-		filebench_log(LOG_ERROR,
-		    "fileset_populate_file: Can't alloc path string");
-		return (FILEBENCH_ERROR);
+	if (!isimported) {
+		int *serial = (int *)name;
+
+		(void) snprintf(tmp, sizeof(tmp), FB_PREFIX "%08d", *serial);
+	} else {
+		char *path = (char *)name;
+
+		entry->fse_flags |= FSE_IMPORTED;
+
+		filebench_log(LOG_VERBOSE, "import %s %s: importing file %s",
+			fileset_entity_name(fileset),
+			avd_get_str(fileset->fs_name), path);
+
+		if (path[strlen(path)-1] == '/')
+			path[strlen(path)-1] = '\0';
+		(void) strncpy(tmp, strrchr(path, '/')+1, sizeof(tmp));
 	}
 
-	entry->fse_size = (off64_t)avd_get_int(fileset->fs_size);
+	entry->fse_path = (char *)ipc_pathalloc(tmp);
+	if (!(entry->fse_path)) {
+		filebench_log(LOG_ERROR,
+		    "fileset_populate_file: Can't alloc path string");
+		return FILEBENCH_ERROR;
+	}
+
+	entry->fse_size = size;
 	fileset->fs_bytes += entry->fse_size;
 
 	fileset->fs_realfiles++;
-	return (FILEBENCH_OK);
+	return FILEBENCH_OK;
 }
 
 /*
@@ -1375,10 +1442,10 @@ fileset_populate_file(fileset_t *fileset, filesetentry_t *parent, int serial)
  * ipc memory cannot be allocated.
  */
 static int
-fileset_populate_dir(fileset_t *fileset, filesetentry_t *parent, int serial,
-	int isleaf, filesetentry_t **retentry)
+fileset_populate_dir(fileset_t *fileset, filesetentry_t *parent, void *name,
+	int isimported, int isleaf, int depth, filesetentry_t **retentry)
 {
-	char tmpname[16];
+	char tmp[MAXPATHLEN];
 	filesetentry_t *entry;
 	uint_t index;
 
@@ -1398,6 +1465,7 @@ fileset_populate_dir(fileset_t *fileset, filesetentry_t *parent, int serial,
 		index = fileset->fs_idle_dirs++;
 	(void) ipc_mutex_unlock(&fileset->fs_pick_lock);
 
+	entry->fse_depth = depth;
 	entry->fse_index = index;
 	entry->fse_parent = parent;
 	entry->fse_fileset = fileset;
@@ -1406,8 +1474,26 @@ fileset_populate_dir(fileset_t *fileset, filesetentry_t *parent, int serial,
 	else
 		fileset_insdirlist(fileset, entry);
 
-	(void) snprintf(tmpname, sizeof(tmpname), FB_PREFIX "%08d", serial);
-	if ((entry->fse_path = (char *)ipc_pathalloc(tmpname)) == NULL) {
+	if (!isimported) {
+		int *serial = (int *)name;
+
+		(void) snprintf(tmp, sizeof(tmp), FB_PREFIX "%08d", *serial);
+	} else {
+		char *path = (char *)name;
+
+		entry->fse_flags |= FSE_IMPORTED;
+
+		filebench_log(LOG_VERBOSE, "import %s %s: importing dir %s",
+			fileset_entity_name(fileset),
+			avd_get_str(fileset->fs_name), path);
+
+		if (path[strlen(path)-1] == '/')
+			path[strlen(path)-1] = '\0';
+		(void) strncpy(tmp, strrchr(path, '/')+1, sizeof(tmp));
+	}
+
+	entry->fse_path = (char *)ipc_pathalloc(tmp);
+	if (!(entry->fse_path)) {
 		filebench_log(LOG_ERROR,
 		    "fileset_populate_dir: Can't alloc path string");
 		return FILEBENCH_ERROR;
@@ -1446,10 +1532,11 @@ fileset_populate_define(fileset_t *fileset, filesetentry_t *parent, int serial,
 	filesetentry_t *entry = NULL;
 	int i;
 
-	depth += 1;
-
-	if (fileset_populate_dir(fileset, parent, serial, isleaf, &entry))
+	if (fileset_populate_dir(fileset, parent, (void *)&serial,
+		0 /* not imported */, isleaf, depth, &entry))
 		return FILEBENCH_ERROR;
+
+	depth += 1;
 
 	if (fileset->fs_dirdepthrv) {
 		randepth = (int)avd_get_int(fileset->fs_dirdepthrv);
@@ -1498,7 +1585,9 @@ fileset_populate_define(fileset_t *fileset, filesetentry_t *parent, int serial,
 		int ret = 0;
 
 		if (parent && isleaf)
-			ret = fileset_populate_file(fileset, entry, i);
+			ret = fileset_populate_file(fileset, entry,
+				(off64_t)avd_get_int(fileset->fs_size),
+				(void *)&i, 0 /* not imported */, depth);
 		else
 			ret = fileset_populate_define(fileset, entry, i, depth);
 
@@ -1517,8 +1606,8 @@ fileset_populate_define(fileset_t *fileset, filesetentry_t *parent, int serial,
 		int ret = 0;
 
 		if (parent && isleaf)
-			ret = fileset_populate_dir(fileset, entry, i, isleaf,
-				NULL);
+			ret = fileset_populate_dir(fileset, entry, (void *)&i,
+				0 /* not imported */, isleaf, depth, NULL);
 		else
 			ret = fileset_populate_define(fileset, entry, i, depth);
 
@@ -1530,14 +1619,228 @@ fileset_populate_define(fileset_t *fileset, filesetentry_t *parent, int serial,
 }
 
 /*
- * Populates a fileset with files and subdirectory entries. Uses the supplied
- * fileset_dirwidth and fileset_entries (number of files) to calculate the
- * required fileset_meandepth (of subdirectories) and initialize the
- * fileset_meanwidth and fileset_meansize variables. Then calls
- * fileset_populate_subdir() to do the recursive subdirectory entry creation
- * and leaf file entry creation. All of the above is skipped if the fileset has
- * already been populated. Returns 0 on success, or an error code from the
- * call to fileset_populate_subdir if that call fails.
+ * If we are importing a file, all we do is populate one filesetentry. If the
+ * file doesn't exist, we return an error and give up.
+ *
+ * If we are importing a fileset, the function traverses the given namespace,
+ * and populates fileset data structures with file/dir information along the
+ * way. Combines the functionality of the fileset_populate_* functions. To
+ * track down parent-child relationships and tree level (0 for root), we keep
+ * a stack of path components seen so far. During the traversal, we do not
+ * follow symbolic links.
+ *
+ * TODO: Simplify import process. Instead of using the FSE_IMPORTED flag, just
+ * put files/dirs in the right lists right away.
+ */
+static int
+fileset_import_files(fileset_t *fileset)
+{
+	struct fse_stack *stack, *tmp;
+	FTS *ftsp;
+	FTSENT *ftsep;
+	int fts_options = FTS_NOCHDIR | FTS_PHYSICAL;
+	filesetentry_t *entry = NULL;
+	char path[MAXPATHLEN];
+	char *args[] = { path, NULL };
+	struct stat64 sb;
+	int isleafdir;
+
+	fileset_getpath(fileset, path, MAXPATHLEN);
+
+	/* If it's a file, just populate it and return */
+	if (fileset->fs_attrs & FILESET_IS_FILE) {
+		if (stat64(path, &sb) != 0) {
+			filebench_log(LOG_ERROR,
+				"import file %s: stat failed", path);
+			return FILEBENCH_ERROR;
+		}
+
+		return fileset_populate_file(fileset, NULL, sb.st_size,
+			(void *)path, 1 /* imported */, 0);
+	}
+
+	/* Allocate dummy node containing fileset root dir */
+	stack = (struct fse_stack *)malloc(sizeof(struct fse_stack));
+	if (!stack) {
+		filebench_log(LOG_ERROR,
+			"import fileset %s: stack alloc failed", path);
+		goto error;
+	}
+
+	/* Populate the parent directory */
+	if (fileset_populate_dir(fileset, NULL, (void *)path, 1 /* imported */,
+		0 /* inner dir */, 0, &entry))
+		goto error;
+
+	/* Now that we're all set, push parent dir in the stack */
+	stack->fse = entry;
+	stack->fse_next = NULL;
+	stack->level = 0;
+
+	/* Open hierarchy for traversal */
+	filebench_log(LOG_DEBUG_IMPL, "import fileset %s: traversing namespace",
+		avd_get_str(fileset->fs_name));
+	ftsp = fts_open(args, fts_options, NULL);
+	if (!ftsp) {
+		filebench_log(LOG_ERROR,
+			"import fileset %s: fts_open failed on %s",
+			avd_get_str(fileset->fs_name), path);
+		goto error;
+	}
+
+	/* Traverse hierarchy */
+	while ((ftsep = fts_read(ftsp)) != NULL) {
+		switch (ftsep->fts_info) {
+		case FTS_D: /* It's a directory */
+			/* We should skip the root directory */
+			if (!strcmp(ftsep->fts_path, path))
+				break;
+
+			/* Pop any visited, deeper branches */
+			while (stack->level >= ftsep->fts_level) {
+				tmp = stack;
+				stack = stack->fse_next;
+				free(tmp);
+			}
+
+			/* Check if it's empty */
+			isleafdir = (fts_children(ftsp, 0) == NULL) ? 1 : 0;
+
+			if (fileset_populate_dir(fileset, stack->fse,
+				(void *)ftsep->fts_path, 1 /* imported */,
+				isleafdir, ftsep->fts_level-1, &entry))
+				goto error;
+
+			if (!isleafdir) {
+				/* Push it in the stack */
+				tmp = stack;
+				stack = (struct fse_stack *) malloc
+					(sizeof(struct fse_stack));
+				stack->fse = entry;
+				stack->fse_next = tmp;
+				stack->level = ftsep->fts_level;
+			}
+
+			break;
+		case FTS_F: /* It's a file */
+			if (fileset_populate_file(fileset, stack->fse,
+				(off64_t) ftsep->fts_statp->st_size,
+				(void *)ftsep->fts_path, 1 /* imported */,
+				ftsep->fts_level-1))
+				goto error;
+
+			/* Pop any visited, deeper branches */
+			while (stack->level >= ftsep->fts_level) {
+				tmp = stack;
+				stack = stack->fse_next;
+				free(tmp);
+			}
+		default: /* Fall through */
+			break;
+		}
+	}
+
+	fts_close(ftsp);
+	return 0;
+
+error:
+	while (stack != NULL) {
+		tmp = stack;
+		stack = stack->fse_next;
+		free(tmp);
+	}
+
+	return FILEBENCH_ERROR;
+}
+
+/*
+ * Traverses the fileset tree, and creates files in existing directories. The
+ * location of the files is decided in a manner that allows a uniform
+ * distribution across directories. We generate F/D files per directory, where
+ * F is the total number of files we need to create, and D is the number of
+ * existent directories. The file size is determined based on the fs_size
+ * variable.
+ * Returns FILEBENCH_OK on success. Returns FILEBENCH_ERROR on error.
+ */
+static int
+fileset_populate_import(fileset_t *fileset)
+{
+	filesetentry_t *cur;
+	fbint_t fperd;
+	char path[MAXPATHLEN], tmp[MAXPATHLEN];
+	char *eos, *fpath;
+
+	/* Find number of files that we need to add per directory.
+	 * If there are no directories (only root), then put all files there */
+	if (fileset->fs_idle_dirs) {
+		fperd = (fileset->fs_constentries - fileset->fs_idle_files) /
+			fileset->fs_idle_dirs;
+		if (fperd * fileset->fs_idle_dirs < fileset->fs_constentries)
+			fperd++;
+	} else {
+		fperd = fileset->fs_constentries;
+	}
+
+	fileset_getpath(fileset, path, MAXPATHLEN);
+
+	/* Iterate over list of inner dirs */
+	eos = &path[strlen(path)];
+	cur = fileset->fs_dirlist;
+	while (cur != NULL) {
+		int i, idx = 0;
+		struct stat64 sb;
+
+		/* Add fperd files, but stop if we reach max files */
+		for (i = 0; i < fperd; i++) {
+			do {
+				idx++;
+				*eos = '\0';
+				fpath = fileset_resolvepath(cur);
+				(void) snprintf(tmp, sizeof(tmp), "%s%s/"
+					FB_PREFIX "%08d", path, fpath, idx);
+				free(fpath);
+			} while (stat64(tmp, &sb) == 0);
+
+			filebench_log(LOG_DEBUG_IMPL,
+				"fileset_populate_import: populating %s", tmp);
+
+			if (fileset_populate_file(fileset, cur,
+				(off64_t)avd_get_int(fileset->fs_size),
+				(void *)&idx, 0 /* not imported */,
+				cur->fse_depth + 1))
+				return FILEBENCH_ERROR;
+
+			if (fileset->fs_idle_files == fileset->fs_constentries)
+				return FILEBENCH_OK;
+		}
+
+		cur = cur->fse_nextoftype;
+	}
+
+	return FILEBENCH_OK;
+}
+
+/*
+ * Populates a fileset with files and subdirectory entries.
+ *
+ * If the fileset is not imported, it uses the supplied fileset_dirwidth and
+ * fileset_entries (number of files) to calculate the required fileset_meandepth
+ * (of subdirectories) and initialize the fileset_meanwidth and fileset_meansize
+ * variables. Then calls fileset_populate_subdir() to do the recursive
+ * subdirectory entry creation and leaf file entry creation.
+ *
+ * If the fileset is imported, it traverses the given path's subdirectories and
+ * generates the proper in-memory representation. The total number of files in
+ * the fileset is determined by either assuming that the imported files corres-
+ * pond to the percentage of preallocated files requested, or alternatively,
+ * we use the number of entries. The supplied fileset size variable is used for
+ * new files. Then calls fileset_populate_subdir() to do the recursive subdir
+ * entry creation and leaf file entry creation for any additional files
+ * required.
+ *
+ * All of the above is skipped if the fileset has already been populated.
+ * Returns 0 on success, or an error code from the call to
+ * fileset_populate_subdir if that call fails.
  */
 static int
 fileset_populate(fileset_t *fileset)
@@ -1546,7 +1849,6 @@ fileset_populate(fileset_t *fileset)
 	fbint_t leafdirs = avd_get_int(fileset->fs_leafdirs);
 	char path[MAXPATHLEN];
 	int meandirwidth = 0;
-	int ret;
 
 	/* Skip if already populated */
 	if (fileset->fs_bytes > 0)
@@ -1596,54 +1898,105 @@ fileset_populate(fileset_t *fileset)
 	avl_create(&(fileset->fs_dirs), fileset_entry_compare,
 	    sizeof (filesetentry_t), FSE_OFFSETOF(fse_link));
 
-	/* is dirwidth a random variable? */
-	if (AVD_IS_RANDOM(fileset->fs_dirwidth)) {
-		meandirwidth =
-		    (int)fileset->fs_dirwidth->avd_val.randptr->rnd_dbl_mean;
-		fileset->fs_meanwidth = -1;
-	} else {
-		meandirwidth = (int)avd_get_int(fileset->fs_dirwidth);
-		fileset->fs_meanwidth = (double)meandirwidth;
-	}
-
-	/*
-	 * Input params are:
-	 *	# of files
-	 *	ave # of files per dir
-	 *	max size of dir
-	 *	# ave size of file
-	 *	max size of file
-	 */
-	fileset->fs_meandepth = log(entries+leafdirs) / log(meandirwidth);
-
-	/* Has a random variable been supplied for dirdepth? */
-	if (fileset->fs_dirdepthrv) {
-		/* yes, so set the random variable's mean value to meandepth */
-		fileset->fs_dirdepthrv->avd_val.randptr->rnd_dbl_mean =
-		    fileset->fs_meandepth;
-	}
-
-	ret = fileset_populate_define(fileset, NULL, 1, 0);
-	if (ret)
-		return ret;
-
-exists:
 	fileset_getpath(fileset, path, MAXPATHLEN);
 
+	if (fileset->fs_import) {
+		filebench_log(LOG_INFO, "import %s %s: importing %s",
+			fileset_entity_name(fileset),
+			avd_get_str(fileset->fs_name), path);
+
+		if (fileset_import_files(fileset))
+			return FILEBENCH_ERROR;
+
+		/* If prealloc is set, it takes precedence over # of entries */
+		if (avd_get_int(fileset->fs_preallocpercent)) {
+			fileset->fs_constentries =
+				(fileset->fs_idle_files * 100) /
+				avd_get_int(fileset->fs_preallocpercent);
+			entries = fileset->fs_constentries;
+		}
+
+		filebench_log(LOG_VERBOSE,
+			"import %s %s: prealloc = %d, entries = %d",
+			fileset_entity_name(fileset),
+			avd_get_str(fileset->fs_name),
+			avd_get_int(fileset->fs_preallocpercent),
+			fileset->fs_constentries);
+
+		if (fileset->fs_idle_files > fileset->fs_constentries) {
+			filebench_log(LOG_ERROR,
+				"import %s %s: imported too many files",
+				fileset_entity_name(fileset), path);
+			return FILEBENCH_ERROR;
+		}
+
+		/* Populate any additional artificial entries as required */
+		if (fileset_populate_import(fileset))
+			return FILEBENCH_ERROR;
+	} else {
+		/* is dirwidth a random variable? */
+		if (AVD_IS_RANDOM(fileset->fs_dirwidth)) {
+			meandirwidth =
+				(int)fileset->fs_dirwidth->avd_val.randptr->rnd_dbl_mean;
+			fileset->fs_meanwidth = -1;
+		} else {
+			meandirwidth = (int)avd_get_int(fileset->fs_dirwidth);
+			fileset->fs_meanwidth = (double)meandirwidth;
+		}
+
+		/*
+		 * Input params are:
+		 *	# of files
+		 *	ave # of files per dir
+		 *	max size of dir
+		 *	# ave size of file
+		 *	max size of file
+		 */
+		fileset->fs_meandepth =
+			log(entries+leafdirs) / log(meandirwidth);
+
+		/* Has a random variable been supplied for dirdepth? */
+		if (fileset->fs_dirdepthrv) {
+			/* yes, so set its mean value to meandepth */
+			fileset->fs_dirdepthrv->avd_val.randptr->rnd_dbl_mean =
+			    fileset->fs_meandepth;
+		}
+
+		if (fileset_populate_define(fileset, NULL, 1, 0)) {
+			filebench_log(LOG_ERROR,
+				"define %s %s: failed to populate namespace",
+				fileset_entity_name(fileset), path);
+			return FILEBENCH_ERROR;
+		}
+	}
+
+	if (fileset_populate_define(fileset, NULL, 1, 0))
+		return FILEBENCH_ERROR;
+
+exists:
 	if (fileset->fs_attrs & FILESET_IS_FILE) {
 		filebench_log(LOG_VERBOSE, "File %s(%s): %.3lfMB",
 		    avd_get_str(fileset->fs_name), path,
 		    (double)fileset->fs_bytes / 1024UL / 1024UL);
 	} else {
-		filebench_log(LOG_INFO, "%s populated at %s: %llu files, "
-		    "avg. dir. width = %d, avg. dir. depth = %.1lf, "
-			"%llu leafdirs, %.3lfMB total size",
-		    avd_get_str(fileset->fs_name), path, entries, leafdirs,
-		    meandirwidth, fileset->fs_meandepth,
-		    (double)fileset->fs_bytes / 1024UL / 1024UL);
+		if (!fileset->fs_import)
+			filebench_log(LOG_INFO, "%s populated at %s: "
+				"%llu files, avg. dirwidth = %d, "
+				"avg. dirdepth = %.1lf, %llu leafdirs, "
+				"%.3lfMB total size",
+				avd_get_str(fileset->fs_name), path, entries,
+				meandirwidth, fileset->fs_meandepth, leafdirs,
+				(double)fileset->fs_bytes / 1024UL / 1024UL);
+		else
+			filebench_log(LOG_INFO, "%s populated at %s: "
+				"%llu files, %llu leafdirs, "
+				"%.3lfMB total size",
+				avd_get_str(fileset->fs_name), path, entries,
+				leafdirs,
+				(double)fileset->fs_bytes / 1024UL / 1024UL);
 	}
 
-	return (FILEBENCH_OK);
+	return FILEBENCH_OK;
 }
 
 /*
@@ -1652,9 +2005,10 @@ exists:
  * name string. Puts the allocated fileset on the master fileset list and
  * returns a pointer to it.
  *
- * This routine implements the 'define fileset' calls found in a .f
- * workload, such as in the following example:
- * define fileset name=drew4ever, entries=$nfiles
+ * This routine implements the 'define fileset' and 'import fileset' calls
+ * found in a .fb workload, such as in the following examples:
+ *   define fileset name=drew4ever, path=$var/str, entries=$nfiles
+ *   import fileset name=drew5ever, path=$var/str, entries=$nfiles
  */
 fileset_t *
 fileset_alloc(avd_t name)
@@ -1732,8 +2086,8 @@ fileset_checkraw(fileset_t *fileset)
 
 /*
  * Calls fileset_populate() and fileset_create() for all filesets on the
- * fileset list. Returns when any of fileset_populate() or fileset_create()
- * fail.
+ * fileset list. Returns an error when a call to fileset_populate() or
+ * fileset_create() fails.
  */
 int
 fileset_createsets()
