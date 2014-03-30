@@ -66,6 +66,7 @@ extern void yyerror(char *s);
 
 create                  { return FSC_CREATE; }
 define			{ return FSC_DEFINE; }
+import			{ return FSC_IMPORT; }
 debug                   { return FSC_DEBUG; }
 domultisync		{ return FSC_DOMULTISYNC; }
 echo                    { return FSC_ECHO; }

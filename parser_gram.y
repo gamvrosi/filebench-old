@@ -109,6 +109,10 @@ static void parser_var_assign_random(char *, cmd_t *);
 static void parser_composite_flowop_define(cmd_t *);
 static void parser_var_assign_custom(char *, cmd_t *);
 
+/* Import Commands */
+static void parser_file_import(cmd_t *);
+static void parser_fileset_import(cmd_t *);
+
 /* Create Commands */
 static void parser_proc_create(cmd_t *);
 static void parser_fileset_create(cmd_t *);
@@ -166,7 +170,7 @@ static void parser_osprof_disable(cmd_t *cmd);
 %token FSC_SLEEP FSC_STATS FSC_SET FSC_SHUTDOWN FSC_LOG
 %token FSC_SYSTEM FSC_FLOWOP FSC_EVENTGEN FSC_ECHO FSC_RUN FSC_PSRUN
 %token FSC_WARMUP FSC_NOUSESTATS FSC_FSCHECK FSC_FSFLUSH
-%token FSC_VERSION FSC_ENABLE FSC_DOMULTISYNC
+%token FSC_VERSION FSC_ENABLE FSC_DOMULTISYNC FSC_IMPORT
 %token FSV_STRING FSV_VAL_INT FSV_VAL_NEGINT FSV_VAL_BOOLEAN FSV_VARIABLE FSV_WHITESTRING
 %token FSV_RANDUNI FSV_RANDTAB FSV_URAND FSV_RAND48
 %token FSE_FILE FSE_PROC FSE_THREAD FSE_CLEAR FSE_SNAP FSE_DUMP
@@ -207,18 +211,20 @@ static void parser_osprof_disable(cmd_t *cmd);
 %type <ival> entity
 
 %type <cmd> command run_command list_command psrun_command
-%type <cmd> proc_define_command files_define_command
+%type <cmd> proc_define_command files_define_command files_import_command
 %type <cmd> fo_define_command debug_command create_command
 %type <cmd> sleep_command stats_command set_command shutdown_command
 %type <cmd> log_command system_command flowop_command
 %type <cmd> eventgen_command quit_command flowop_list thread_list
-%type <cmd> thread echo_command 
+%type <cmd> thread echo_command
 %type <cmd> version_command enable_command multisync_command
 %type <cmd> warmup_command fscheck_command fsflush_command
 %type <cmd> set_variable set_random_variable set_custom_variable set_mode
 %type <cmd> osprof_enable_command osprof_disable_command
 
-%type <attr> file_attr_op fileset_attr_op file_attr_ops fileset_attr_ops
+%type <attr> file_define_attr_op fileset_define_attr_op file_define_attr_ops
+%type <attr> fileset_define_attr_ops file_import_attr_op fileset_import_attr_op
+%type <attr> file_import_attr_ops fileset_import_attr_ops
 %type <attr> p_attr_op t_attr_op p_attr_ops t_attr_ops
 %type <attr> fo_attr_op fo_attr_ops ev_attr_op ev_attr_ops
 %type <attr> randvar_attr_op randvar_attr_ops randvar_attr_typop
@@ -232,6 +238,7 @@ static void parser_osprof_disable(cmd_t *cmd);
 %type <ival> attrs_define_thread attrs_flowop
 %type <ival> attrs_define_proc attrs_eventgen attrs_define_comp
 %type <ival> attr_define_file attr_define_fileset fo_attr_name ev_attr_name
+%type <ival> attr_import_file attr_import_fileset
 %type <ival> randvar_attr_name FSA_TYPE randtype_name
 %type <ival> randsrc_name FSA_RANDSRC em_attr_name
 %type <ival> FSS_TYPE FSS_SEED FSS_GAMMA FSS_MEAN FSS_MIN FSS_SRC
@@ -259,6 +266,7 @@ commands: commands command
 command:
   proc_define_command
 | files_define_command
+| files_import_command
 | fo_define_command
 | debug_command
 | eventgen_command
@@ -770,7 +778,7 @@ proc_define_command: FSC_DEFINE FSE_PROC p_attr_ops FSK_OPENLST thread_list FSK_
 	$1->cmd_attr_list = $2;
 };
 
-files_define_command: FSC_DEFINE FSE_FILE file_attr_ops
+files_define_command: FSC_DEFINE FSE_FILE file_define_attr_ops
 {
 	$$ = alloc_cmd();
 	if (!$$)
@@ -778,13 +786,32 @@ files_define_command: FSC_DEFINE FSE_FILE file_attr_ops
 
 	$$->cmd = &parser_file_define;
 	$$->cmd_attr_list = $3;
-}| FSC_DEFINE FSE_FILESET fileset_attr_ops
+}| FSC_DEFINE FSE_FILESET fileset_define_attr_ops
 {
 	$$ = alloc_cmd();
 	if (!$$)
 		YYERROR;
 
 	$$->cmd = &parser_fileset_define;
+	$$->cmd_attr_list = $3;
+};
+
+files_import_command: FSC_IMPORT FSE_FILE file_import_attr_ops
+{
+	$$ = alloc_cmd();
+	if (!$$)
+		YYERROR;
+
+	$$->cmd = &parser_file_import;
+	$$->cmd_attr_list = $3;
+}
+| FSC_IMPORT FSE_FILESET fileset_import_attr_ops
+{
+	$$ = alloc_cmd();
+	if (!$$)
+		YYERROR;
+
+	$$->cmd = &parser_fileset_import;
 	$$->cmd_attr_list = $3;
 };
 
@@ -947,11 +974,11 @@ entity: FSE_PROC {$$ = FSE_PROC;}
 name: FSV_STRING;
 
 /* attribute parsing for define file and define fileset */
-file_attr_ops: file_attr_op
+file_define_attr_ops: file_define_attr_op
 {
 	$$ = $1;
 }
-| file_attr_ops FSK_SEPLST file_attr_op
+| file_define_attr_ops FSK_SEPLST file_define_attr_op
 {
 	attr_t *attr = NULL;
 	attr_t *list_end = NULL;
@@ -964,11 +991,11 @@ file_attr_ops: file_attr_op
 	$$ = $1;
 };
 
-fileset_attr_ops: fileset_attr_op
+fileset_define_attr_ops: fileset_define_attr_op
 {
 	$$ = $1;
 }
-| fileset_attr_ops FSK_SEPLST fileset_attr_op
+| fileset_define_attr_ops FSK_SEPLST fileset_define_attr_op
 {
 	attr_t *attr = NULL;
 	attr_t *list_end = NULL;
@@ -981,7 +1008,7 @@ fileset_attr_ops: fileset_attr_op
 	$$ = $1;
 };
 
-file_attr_op: attr_define_file FSK_ASSIGN attr_value
+file_define_attr_op: attr_define_file FSK_ASSIGN attr_value
 {
 	$$ = $3;
 	$$->attr_name = $1;
@@ -995,12 +1022,75 @@ file_attr_op: attr_define_file FSK_ASSIGN attr_value
 	$$->attr_name = $1;
 };
 
-fileset_attr_op: attr_define_fileset FSK_ASSIGN attr_value
+fileset_define_attr_op: attr_define_fileset FSK_ASSIGN attr_value
 {
 	$$ = $3;
 	$$->attr_name = $1;
 }
 | attr_define_fileset
+{
+	$$ = alloc_attr();
+	if (!$$)
+		YYERROR;
+
+	$$->attr_name = $1;
+};
+
+/* attribute parsing for import file and import fileset */
+file_import_attr_ops: file_import_attr_op
+{
+	$$ = $1;
+}
+| file_import_attr_ops FSK_SEPLST file_import_attr_op
+{
+	attr_t *attr = NULL;
+	attr_t *list_end = NULL;
+
+	for (attr = $1; attr; attr = attr->attr_next)
+		list_end = attr;
+
+	list_end->attr_next = $3;
+
+	$$ = $1;
+};
+
+fileset_import_attr_ops: fileset_import_attr_op
+{
+	$$ = $1;
+}
+| fileset_import_attr_ops FSK_SEPLST fileset_import_attr_op
+{
+	attr_t *attr = NULL;
+	attr_t *list_end = NULL;
+
+	for (attr = $1; attr; attr = attr->attr_next)
+		list_end = attr;
+
+	list_end->attr_next = $3;
+
+	$$ = $1;
+};
+
+file_import_attr_op: attr_import_file FSK_ASSIGN attr_value
+{
+	$$ = $3;
+	$$->attr_name = $1;
+}
+| attr_import_file
+{
+	$$ = alloc_attr();
+	if (!$$)
+		YYERROR;
+
+	$$->attr_name = $1;
+};
+
+fileset_import_attr_op: attr_import_fileset FSK_ASSIGN attr_value
+{
+	$$ = $3;
+	$$->attr_name = $1;
+}
+| attr_import_fileset
 {
 	$$ = alloc_attr();
 	if (!$$)
@@ -1309,6 +1399,26 @@ attr_define_fileset:
 | FSA_CACHED { $$ = FSA_CACHED;}
 | FSA_LEAFDIRS { $$ = FSA_LEAFDIRS;};
 | FSA_WRITEONLY { $$ = FSA_WRITEONLY;}
+
+attr_import_file:
+  FSA_NAME { $$ = FSA_NAME; }
+| FSA_PATH { $$ = FSA_PATH; }
+| FSA_READONLY { $$ = FSA_READONLY; }
+| FSA_TRUSTTREE { $$ = FSA_TRUSTTREE; }
+| FSA_CACHED { $$ = FSA_CACHED; };
+| FSA_WRITEONLY { $$ = FSA_WRITEONLY; }
+
+attr_import_fileset:
+  FSA_NAME { $$ = FSA_NAME; }
+| FSA_PATH { $$ = FSA_PATH; }
+| FSA_ENTRIES { $$ = FSA_ENTRIES; }
+| FSA_SIZE { $$ = FSA_SIZE; }
+| FSA_PREALLOC { $$ = FSA_PREALLOC; }
+| FSA_READONLY { $$ = FSA_READONLY; }
+| FSA_TRUSTTREE { $$ = FSA_TRUSTTREE; }
+| FSA_CACHED { $$ = FSA_CACHED; };
+| FSA_LEAFDIRS { $$ = FSA_LEAFDIRS; }
+| FSA_WRITEONLY { $$ = FSA_WRITEONLY; }
 
 randvar_attr_name:
   FSA_NAME { $$ = FSA_NAME;}
@@ -2655,12 +2765,10 @@ parser_composite_flowop_define(cmd_t *cmd)
 	}
 }
 
-
 /*
  * Calls fileset_alloc() to allocate a fileset with the supplied name and
  * initializes the fileset's pathname attribute, and optionally the
  * fileset_cached, fileset_reuse, fileset_prealloc and fileset_size attributes.
- *
  */
 static fileset_t *
 parser_fileset_init_common(cmd_t *cmd)
@@ -2777,10 +2885,10 @@ parser_fileset_init_common(cmd_t *cmd)
 }
 
 /*
- * Calls parser_fileset_init_common() to allocate a fileset with
- * one entry and optionally the fileset_prealloc. sets the fileset_entries,
- * fileset_dirwidth, fileset_dirgamma, and fileset_sizegamma attributes
- * to appropriate values for emulating the old "fileobj" entity
+ * Calls parser_fileset_init_common() to allocate a fileset with one entry and
+ * optionally the fileset_prealloc. sets the fileset_entries, fileset_dirwidth,
+ * and fileset_dirgamma attributes to appropriate values for emulating the old
+ * "fileobj" entity
  */
 static void
 parser_file_define(cmd_t *cmd)
@@ -2809,10 +2917,9 @@ parser_file_define(cmd_t *cmd)
 }
 
 /*
- * Calls parser_fileset_init_common() to allocate a fileset with the
- * supplied name and initializes the fileset's fileset_preallocpercent,
- * fileset_prealloc, fileset_entries, fileset_dirwidth, fileset_dirgamma,
- * and fileset_sizegamma attributes.
+ * Calls parser_fileset_init_common() to allocate a fileset with the supplied
+ * name and initializes the fileset's fileset_preallocpercent, fileset_prealloc,
+ * fileset_entries, fileset_dirwidth, and fileset_dirgamma attributes.
  */
 static void
 parser_fileset_define(cmd_t *cmd)
@@ -2861,6 +2968,74 @@ parser_fileset_define(cmd_t *cmd)
 		fileset->fs_dirgamma = attr->attr_avd;
 	} else
 		fileset->fs_dirgamma = avd_int_alloc(1500);
+}
+
+ /*
+ * Calls parser_fileset_init_common() to allocate a fileset with one entry and
+ * optionally the fileset_prealloc. sets the fileset_entries, fileset_dirwidth,
+ * and fileset_dirgamma attributes to appropriate values
+ */
+static void
+parser_file_import(cmd_t *cmd)
+{
+	fileset_t *fileset = parser_fileset_init_common(cmd);
+
+	if (!fileset) {
+		filebench_log(LOG_ERROR,
+			"import file: failed to instantiate file");
+		filebench_shutdown(1);
+		return;
+	}
+
+	/* fileset is emulating a single file */
+	fileset->fs_attrs = FILESET_IS_FILE;
+
+	/* Set the size of the fileset to 1, no leafdirs */
+	fileset->fs_entries = avd_int_alloc(1);
+	fileset->fs_leafdirs = avd_int_alloc(0);
+
+	/* Mark this file as imported */
+	fileset->fs_import = 1;
+}
+
+/*
+ * Calls parser_fileset_init_common() to allocate a fileset with the supplied
+ * name and initializes the fileset's fileset_preallocpercent,
+ * fileset_prealloc, fileset_entries, fileset_dirwidth, and fileset_dirgamma
+ * attributes.
+ */
+static void
+parser_fileset_import(cmd_t *cmd)
+{
+	fileset_t *fileset = parser_fileset_init_common(cmd);
+	attr_t *attr;
+
+	if (!fileset) {
+		filebench_log(LOG_ERROR,
+			"import fileset: failed to instantiate fileset");
+		filebench_shutdown(1);
+		return;
+	}
+
+	/* Get the number of files in the fileset */
+	attr = get_attr_integer(cmd, FSA_ENTRIES);
+	if (attr)
+		fileset->fs_entries = attr->attr_avd;
+	else
+		fileset->fs_entries = avd_int_alloc(0);
+
+	/* We must define either entries, or prealloc */
+	if (avd_get_bool(fileset->fs_prealloc) == FALSE &&
+		(avd_get_int(fileset->fs_entries) == 0)) {
+		filebench_log(LOG_ERROR,
+			"import fileset: %d includes no files",
+			avd_get_str(fileset->fs_name));
+		filebench_shutdown(1);
+		return;
+	}
+
+	/* Mark this fileset as imported */
+	fileset->fs_import = 1;
 }
 
 /*
