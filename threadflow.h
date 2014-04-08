@@ -48,7 +48,6 @@ typedef struct threadflow {
 	int		tf_attrs;	/* Attributes */
 	int		tf_instance;	/* Instance number */
 	int		tf_running;	/* Thread running indicator */
-	int		tf_exec;	/* Thread executing flowop indicator */
 	int		tf_abort;	/* Shutdown thread */
 	int		tf_utid;	/* Unique id for thread */
 	struct procflow	*tf_process;	/* Back pointer to process */

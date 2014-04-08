@@ -136,6 +136,7 @@ static void parser_enable_mc(cmd_t *cmd);
 static void parser_domultisync(cmd_t *cmd);
 static void parser_run(cmd_t *cmd);
 static void parser_run_variable(cmd_t *cmd);
+static void parser_run_barrier(cmd_t *cmd);
 static void parser_psrun(cmd_t *cmd);
 static void parser_sleep(cmd_t *cmd);
 static void parser_sleep_variable(cmd_t *cmd);
@@ -890,6 +891,15 @@ run_command: FSC_RUN FSV_VAL_INT
 		YYERROR;
 	$$->cmd = parser_run_variable;
 	$$->cmd_tgt1 = fb_stralloc($2);
+}
+| FSC_RUN FSV_VARIABLE FSV_VARIABLE FSV_VARIABLE
+{
+	if (($$ = alloc_cmd()) == NULL)
+		YYERROR;
+	$$->cmd = parser_run_barrier;
+	$$->cmd_tgt1 = fb_stralloc($2);
+	$$->cmd_tgt2 = fb_stralloc($3);
+	$$->cmd_tgt3 = fb_stralloc($4);
 }
 | FSC_RUN
 {
@@ -2955,11 +2965,49 @@ parser_pause(int ptime)
 		while (timeslept < ptime) {
 			(void) sleep(1);
 			timeslept++;
+            printf("FILEBENCH CLOCK %d\n", timeslept);
 			if (filebench_shm->shm_f_abort)
 				break;
-            if (timeslept >= 4 && timeslept % 4 == 0 ) {
+            //if (timeslept >= 4 && timeslept % 4 == 0 ) {
+            //    procflow_suspendthreads();
+            //    sleep(2);
+            //    procflow_resumethreads();
+            //}
+		}
+	} else {
+		/* initial runtime of 0 means run till abort */
+		/* CONSTCOND */
+		while (1) {
+			(void) sleep(1);
+			timeslept++;
+			if (filebench_shm->shm_f_abort)
+				break;
+            //if (timeslept % 2 == 0) {
+            //    procflow_suspend();
+            //    sleep(1);
+            //    procflow_resume();
+            //}
+		}
+	}
+
+	return (timeslept);
+}
+
+static int
+parser_pause_barrier(int ptime, int btime, int dtime)
+{
+	int timeslept = 0;
+
+	if (ptime) {
+		while (timeslept < ptime) {
+			(void) sleep(1);
+			timeslept++;
+            printf("FILEBENCH CLOCK %d\n", timeslept);
+			if (filebench_shm->shm_f_abort)
+				break;
+            if (timeslept >= btime && timeslept % btime == 0 ) {
                 procflow_suspendthreads();
-                sleep(2);
+                sleep(dtime);
                 procflow_resumethreads();
             }
 		}
@@ -2971,16 +3019,18 @@ parser_pause(int ptime)
 			timeslept++;
 			if (filebench_shm->shm_f_abort)
 				break;
-            if (timeslept % 2 == 0) {
-                procflow_suspend();
-                sleep(1);
-                procflow_resume();
+            if (timeslept >= btime && timeslept % btime == 0 ) {
+                procflow_suspendthreads();
+                sleep(dtime);
+                procflow_resumethreads();
             }
 		}
 	}
 
 	return (timeslept);
 }
+
+
 
 #define TIMED_RUNTIME_DEFAULT 60 /* In seconds */
 #define PERIOD_DEFAULT 10 /* In seconds */
@@ -2995,7 +3045,7 @@ parser_pause(int ptime)
 static void
 parser_run(cmd_t *cmd)
 {
-    printf("Parser RUN was called\n\n");
+    printf("Parser RUN was called\n");
 	int runtime;
 	int timeslept;
 
@@ -3027,7 +3077,7 @@ static void
 parser_psrun(cmd_t *cmd)
 {
     
-    printf("Parser RUN PS was called\n\n");
+    printf("Parser RUN PS was called\n");
 	int runtime;
 	int period;
 	int timeslept = 0;
@@ -3094,12 +3144,63 @@ parser_psrun(cmd_t *cmd)
 
 /*
  * Similar to parser_run, but gets the sleep time from a variable
+ * along with barrier and delay time from variables
+ */
+static void
+parser_run_barrier(cmd_t *cmd)
+{
+    printf("Parser RUN BAR was called\n");
+    avd_t runint = avd_var_alloc(cmd->cmd_tgt1);
+    avd_t barint = avd_var_alloc(cmd->cmd_tgt2);
+    avd_t delint = avd_var_alloc(cmd->cmd_tgt3);
+    
+    int runtime;
+    int barriertime;
+    int delaytime;
+    int timeslept;
+    
+    if (runint == NULL || barint == NULL || delint == NULL) {
+        filebench_log(LOG_ERROR, "Unknown variable %s",
+        cmd->cmd_tgt1, cmd->cmd_tgt2, cmd->cmd_tgt3);
+        return;
+    }
+    
+    runtime = avd_get_int(runint);
+    barriertime = avd_get_int(barint);
+    delaytime = avd_get_int(delint);
+    
+    printf("READ IN FOLLOWING VARS runtime: %d, bartime: %d, deltime: %d\n", runtime, barriertime, delaytime); 
+
+    parser_fileset_create(cmd);
+	parser_proc_create(cmd);
+
+	/* check for startup errors */
+	if (filebench_shm->shm_f_abort)
+		return;
+
+	filebench_log(LOG_INFO, "Running...");
+	stats_clear();
+
+	/* If it is a timed mode and timeout is not specified use default */
+	if (filebench_shm->shm_rmode == FILEBENCH_MODE_TIMEOUT && !runtime)
+		runtime = TIMED_RUNTIME_DEFAULT;
+
+	timeslept = parser_pause_barrier(runtime, barriertime, delaytime);
+
+	filebench_log(LOG_INFO, "Run took %d seconds...", timeslept);
+	parser_statssnap(cmd);
+	parser_proc_shutdown(cmd);
+	parser_filebench_shutdown((cmd_t *)0);
+}
+
+/*
+ * Similar to parser_run, but gets the sleep time from a variable
  * whose name is supplied as an argument to the command.
  */
 static void
 parser_run_variable(cmd_t *cmd)
 {
-    printf("Parser RUN VAR was called\n\n");
+    printf("Parser RUN VAR was called\n");
 	avd_t integer = avd_var_alloc(cmd->cmd_tgt1);
 	int runtime;
 	int timeslept;
@@ -3133,6 +3234,8 @@ parser_run_variable(cmd_t *cmd)
 	parser_proc_shutdown(cmd);
 	parser_filebench_shutdown((cmd_t *)0);
 }
+
+
 
 char *usagestr = NULL;
 

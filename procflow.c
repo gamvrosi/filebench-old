@@ -852,7 +852,8 @@ procflow_resume(void)
 /* 
  * Suspend a set of threadflows for a given process.
  * Used to create idle barriers between flowops.
- * Note: This resumes threadflows in the middle of flow ops.
+ * Note: This suspends threadflows in the middle of flow ops.
+ * Note: This method cannot be called before filebench init, no saftey checks
  */
 void
 procflow_suspendthreads(void)
@@ -861,37 +862,31 @@ procflow_suspendthreads(void)
     threadflow_t *threadflow; 
 
     int threads = 0;
+    double seconds = 0;
     struct timeval  tv1, tv2;
-    gettimeofday(&tv1, NULL);
-
-
-
 
     //TODO: not entierly sure if i should lock at this point ... 
 	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
 	procflow = filebench_shm->shm_procflowlist;
 	while (procflow) {
+        gettimeofday(&tv1, NULL);
         threads = 0;
         //TODO: Add in param to choose what procs to sleep
-		if (query_flag(&procflow->pf_threads_defined_flag) && 
-                (procflow->pf_instance != FLOW_MASTER)) {
-
+		if ((procflow->pf_instance != FLOW_MASTER)) {
             threadflow = procflow->pf_threads;
             while(threadflow) {
-                //TODO: Add in params to choose what threads to suspend
-                while(threadflow->tf_exec == 1) {
-                    // busy loop till thread finishes op
-                    //TODO: Determine if this is neccassary, should I just
-                    // block on the lock instead?
+		        if (threadflow->tf_instance != FLOW_MASTER) {
+                    //TODO: Add in params to choose what threads to suspend
+                    threads++;
+                    (void) ipc_mutex_lock(&threadflow->tf_lock);
                 }
-                threads++;
-                (void) ipc_mutex_lock(&threadflow->tf_lock);
                 threadflow = threadflow->tf_next;
             }
+
             printf("\nSUSPENDED ALL THREADS IN PROC\n");
 
             gettimeofday(&tv2, NULL);
-            double seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
+            seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
 
             printf("Took %f ms to suspend %d threads in procflow %d\n\n", seconds*1000, threads, procflow->pf_instance); 
 
@@ -901,6 +896,12 @@ procflow_suspendthreads(void)
 	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
 }
 
+/* 
+ * Resume a set of threadflows for a given process.
+ * Used to create idle barriers between flowops.
+ * Note: This resumes threadflows in the middle of flow ops.
+ * Note: This method cannot be called before filebench init, no saftey checks
+ */
 void
 procflow_resumethreads(void)
 {
@@ -908,26 +909,28 @@ procflow_resumethreads(void)
     threadflow_t *threadflow; 
     
     int threads = 0;
+    double seconds = 0;
     struct timeval  tv1, tv2;
-    gettimeofday(&tv1, NULL);
-
+    
     //TODO: not entierly sure if i should lock at this point ... 
 	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
 	procflow = filebench_shm->shm_procflowlist;
 	while (procflow) {
+        gettimeofday(&tv1, NULL);
         threads = 0;
-		if (query_flag(&procflow->pf_threads_defined_flag) && 
-                (procflow->pf_instance != FLOW_MASTER)) {
-
+		if ((procflow->pf_instance != FLOW_MASTER)) {
             threadflow = procflow->pf_threads;
             while(threadflow) {
-                threads++;
-                (void) ipc_mutex_unlock(&threadflow->tf_lock);
+		        if (threadflow->tf_instance != FLOW_MASTER) {
+                    threads++;
+                    (void) ipc_mutex_unlock(&threadflow->tf_lock);
+                }
                 threadflow = threadflow->tf_next;
             }
+
             printf("RESUMED ALL THREADS IN PROC\n");
             gettimeofday(&tv2, NULL);
-            double seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
+            seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
             printf("Took %f ms to resume %d threads in procflow %d\n\n", seconds*1000, threads, procflow->pf_instance); 
 
         }

@@ -31,10 +31,12 @@ set $nthreads=50
 set $meaniosize=1m
 set $meanappendsize=16k
 set $runtime=20
+set $bartime=5
+set $deltime=5
 
 define fileset name=bigfileset,path=$dir,size=$meanfilesize,entries=$nfiles,dirwidth=$meandirwidth,prealloc=80
 
-define process name=filereader,instances=1
+define process name=filereader,instances=2
 {
   thread name=filereaderthread,memsize=10m,instances=$nthreads
   {
@@ -63,5 +65,8 @@ echo "    \$nthreads=$nthreads"
 echo "    \$meaniosize=$meaniosize"
 echo "    \$meanappendsize=$meanappendsize"
 echo "    \$runtime=$runtime"
+echo "    \$bartime=$bartime"
+echo "    \$deltime=$deltime"
 
-run $runtime 
+run $runtime $bartime $deltime 
+#run $runtime 

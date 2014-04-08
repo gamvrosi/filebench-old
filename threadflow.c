@@ -466,23 +466,3 @@ threadflow_find(threadflow_t *threadlist, char *name)
 
 	return (NULL);
 }
-
-/*
- * Pauses all threads on the given threadflow list for.
-threadflow_t *
-threadflow_suspend(threadflow_t *threadlist, char *name)
-{
-	threadflow_t *threadflow = threadlist;
-
-	(void) ipc_mutex_lock(&filebench_shm->shm_threadflow_lock);
-
-	while (threadflow) {
-		threadflow = threadflow->tf_next;
-	}
-
-	(void) ipc_mutex_unlock(&filebench_shm->shm_threadflow_lock);
-
-
-	return (NULL);
-}
- */

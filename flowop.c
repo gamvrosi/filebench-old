@@ -164,7 +164,6 @@ flowop_beginop(threadflow_t *threadflow, flowop_t *flowop)
 			    threadflow->tf_susage.pr_stime);
 		}
 
-        threadflow->tf_exec = 1;
 	}
 #elif defined(HAVE_PROC_PID_STAT)
 	int tid;
@@ -230,7 +229,6 @@ flowop_endop(threadflow_t *threadflow, flowop_t *flowop, int64_t bytes)
 
 	ll_delay = (gethrtime() - threadflow->tf_stime);
 
-    threadflow->tf_exec = 0;
 
 	/* setting minimum and maximum latencies for this flowop */
 	if (!flowop->fo_stats.fs_minlat || ll_delay < flowop->fo_stats.fs_minlat)
@@ -524,7 +522,6 @@ flowop_start(threadflow_t *threadflow)
 	 */ 
 	threadflow->tf_abort = 0;
 	threadflow->tf_running = 1;
-	threadflow->tf_exec = 0;
 
 	/*
 	 * Block until all processes have started, acting like
