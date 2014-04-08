@@ -2957,6 +2957,11 @@ parser_pause(int ptime)
 			timeslept++;
 			if (filebench_shm->shm_f_abort)
 				break;
+            if (timeslept >= 4 && timeslept % 4 == 0 ) {
+                procflow_suspendthreads();
+                sleep(2);
+                procflow_resumethreads();
+            }
 		}
 	} else {
 		/* initial runtime of 0 means run till abort */
@@ -2966,6 +2971,11 @@ parser_pause(int ptime)
 			timeslept++;
 			if (filebench_shm->shm_f_abort)
 				break;
+            if (timeslept % 2 == 0) {
+                procflow_suspend();
+                sleep(1);
+                procflow_resume();
+            }
 		}
 	}
 
@@ -2985,6 +2995,7 @@ parser_pause(int ptime)
 static void
 parser_run(cmd_t *cmd)
 {
+    printf("Parser RUN was called\n\n");
 	int runtime;
 	int timeslept;
 
@@ -3015,6 +3026,8 @@ parser_run(cmd_t *cmd)
 static void
 parser_psrun(cmd_t *cmd)
 {
+    
+    printf("Parser RUN PS was called\n\n");
 	int runtime;
 	int period;
 	int timeslept = 0;
@@ -3086,6 +3099,7 @@ parser_psrun(cmd_t *cmd)
 static void
 parser_run_variable(cmd_t *cmd)
 {
+    printf("Parser RUN VAR was called\n\n");
 	avd_t integer = avd_var_alloc(cmd->cmd_tgt1);
 	int runtime;
 	int timeslept;

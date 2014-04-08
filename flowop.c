@@ -163,6 +163,8 @@ flowop_beginop(threadflow_t *threadflow, flowop_t *flowop)
 			    TIMESPEC_TO_HRTIME(threadflow->tf_eusage.pr_stime,
 			    threadflow->tf_susage.pr_stime);
 		}
+
+        threadflow->tf_exec = 1;
 	}
 #elif defined(HAVE_PROC_PID_STAT)
 	int tid;
@@ -228,6 +230,8 @@ flowop_endop(threadflow_t *threadflow, flowop_t *flowop, int64_t bytes)
 
 	ll_delay = (gethrtime() - threadflow->tf_stime);
 
+    threadflow->tf_exec = 0;
+
 	/* setting minimum and maximum latencies for this flowop */
 	if (!flowop->fo_stats.fs_minlat || ll_delay < flowop->fo_stats.fs_minlat)
 		flowop->fo_stats.fs_minlat = ll_delay;
@@ -263,6 +267,7 @@ flowop_endop(threadflow_t *threadflow, flowop_t *flowop, int64_t bytes)
 		    TIMESPEC_TO_HRTIME(threadflow->tf_susage.pr_slptime,
 		    threadflow->tf_eusage.pr_slptime);
 	}
+
 #elif defined(HAVE_PROC_PID_STAT)
 	int tid;
 	char fname[128], dummy_str[64];
@@ -317,6 +322,10 @@ flowop_endop(threadflow_t *threadflow, flowop_t *flowop, int64_t bytes)
 		flowop_populate_distribution(flowop, ll_delay);
 
 	(void) ipc_mutex_unlock(&controlstats_lock);
+
+    //TODO: check if proc needs you to idle
+    //TODO: atomicly increment you are here
+    //TODO: put yourself on the condition variable
 }
 
 /*
@@ -515,6 +524,7 @@ flowop_start(threadflow_t *threadflow)
 	 */ 
 	threadflow->tf_abort = 0;
 	threadflow->tf_running = 1;
+	threadflow->tf_exec = 0;
 
 	/*
 	 * Block until all processes have started, acting like
@@ -643,7 +653,12 @@ flowop_start(threadflow_t *threadflow)
 		}
 
 		/* advance to next flowop */
+        //TODO:(void) ipc_mutex_lock(&threadflow->tf_lock);
+        (void) ipc_mutex_lock(&threadflow->tf_lock);
+        // I can possibly update the processes next ptr
 		flowop = flowop->fo_exec_next;
+        //TODO:(void) ipc_mutex_unlock(&threadflow->tf_lock);
+        (void) ipc_mutex_unlock(&threadflow->tf_lock);
 
 		/* but if at end of list, start over from the beginning */
 		if (flowop == NULL) {

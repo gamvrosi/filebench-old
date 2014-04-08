@@ -50,5 +50,9 @@ void	procflow_shutdown(void);
 int	procflow_exec(char *name, int instance);
 void	procflow_usage(void);
 int	procflow_allstarted(void);
+void procflow_suspend(void);
+void procflow_resume(void);
+void procflow_suspendthreads(void);
+void procflow_resumethreads(void);
 
 #endif	/* _FB_PROCFLOW_H */

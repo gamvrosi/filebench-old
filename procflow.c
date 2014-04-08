@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #include "filebench.h"
 #include "procflow.h"
@@ -228,7 +229,6 @@ procflow_create_all_procs(void)
 
 		procflow = procflow->pf_next;
 	}
-
 	return (ret);
 }
 
@@ -789,3 +789,151 @@ procflow_define(char *name, procflow_t *inherit, avd_t instances)
 
 	return (procflow);
 }
+
+/* 
+ * Suspend all defined procflows.
+ * Used to create idle barriers between flowops.
+ * Note: This suspends threadflows in the middle of flow ops.
+ */
+void
+procflow_suspend(void)
+{
+    procflow_t *procflow;
+
+    //TODO: not entierly sure if i should lock at this point ... 
+	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
+	procflow = filebench_shm->shm_procflowlist;
+    pid_t pid;
+	while (procflow) {
+        //TODO: Add in param to choose what procs to sleep
+		if (procflow->pf_running && procflow->pf_instance != FLOW_MASTER) {
+		    pid = procflow->pf_pid;
+#ifdef HAVE_SIGSEND
+			(void) sigsend(P_PID, pid, SIGSTOP);
+#else
+			int i = kill(pid, SIGSTOP);
+            printf("SUSPENDING sig returned %d\n", i);
+#endif
+        }
+		procflow = procflow->pf_next;
+	}
+	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
+}
+
+/* 
+ * Resume all defined procflows.
+ * Used to create idle barriers between flowops.
+ * Note: This resumes threadflows in the middle of flow ops.
+ */
+void
+procflow_resume(void)
+{
+    procflow_t *procflow;
+
+    //TODO: not entierly sure if i should lock at this point ... 
+	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
+	procflow = filebench_shm->shm_procflowlist;
+    pid_t pid;
+	while (procflow) {
+		if (procflow->pf_running && procflow->pf_instance != FLOW_MASTER) {
+		    pid = procflow->pf_pid;
+#ifdef HAVE_SIGSEND
+			(void) sigsend(P_PID, pid, SIGCONT);
+#else
+			int i = kill(pid, SIGCONT);
+            printf("RESUMING sig returned %d\n", i);
+#endif
+        }
+		procflow = procflow->pf_next;
+	}
+	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
+}
+
+/* 
+ * Suspend a set of threadflows for a given process.
+ * Used to create idle barriers between flowops.
+ * Note: This resumes threadflows in the middle of flow ops.
+ */
+void
+procflow_suspendthreads(void)
+{
+    procflow_t *procflow;
+    threadflow_t *threadflow; 
+
+    int threads = 0;
+    struct timeval  tv1, tv2;
+    gettimeofday(&tv1, NULL);
+
+
+
+
+    //TODO: not entierly sure if i should lock at this point ... 
+	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
+	procflow = filebench_shm->shm_procflowlist;
+	while (procflow) {
+        threads = 0;
+        //TODO: Add in param to choose what procs to sleep
+		if (query_flag(&procflow->pf_threads_defined_flag) && 
+                (procflow->pf_instance != FLOW_MASTER)) {
+
+            threadflow = procflow->pf_threads;
+            while(threadflow) {
+                //TODO: Add in params to choose what threads to suspend
+                while(threadflow->tf_exec == 1) {
+                    // busy loop till thread finishes op
+                    //TODO: Determine if this is neccassary, should I just
+                    // block on the lock instead?
+                }
+                threads++;
+                (void) ipc_mutex_lock(&threadflow->tf_lock);
+                threadflow = threadflow->tf_next;
+            }
+            printf("\nSUSPENDED ALL THREADS IN PROC\n");
+
+            gettimeofday(&tv2, NULL);
+            double seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
+
+            printf("Took %f ms to suspend %d threads in procflow %d\n\n", seconds*1000, threads, procflow->pf_instance); 
+
+        }
+		procflow = procflow->pf_next;
+	}
+	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
+}
+
+void
+procflow_resumethreads(void)
+{
+    procflow_t *procflow;
+    threadflow_t *threadflow; 
+    
+    int threads = 0;
+    struct timeval  tv1, tv2;
+    gettimeofday(&tv1, NULL);
+
+    //TODO: not entierly sure if i should lock at this point ... 
+	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
+	procflow = filebench_shm->shm_procflowlist;
+	while (procflow) {
+        threads = 0;
+		if (query_flag(&procflow->pf_threads_defined_flag) && 
+                (procflow->pf_instance != FLOW_MASTER)) {
+
+            threadflow = procflow->pf_threads;
+            while(threadflow) {
+                threads++;
+                (void) ipc_mutex_unlock(&threadflow->tf_lock);
+                threadflow = threadflow->tf_next;
+            }
+            printf("RESUMED ALL THREADS IN PROC\n");
+            gettimeofday(&tv2, NULL);
+            double seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
+            printf("Took %f ms to resume %d threads in procflow %d\n\n", seconds*1000, threads, procflow->pf_instance); 
+
+        }
+		procflow = procflow->pf_next;
+	}
+	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
+}
+
+
