@@ -23,14 +23,14 @@
 # Use is subject to license terms.
 #
 
-set $dir=/tmp
-set $nfiles=10000
+set $dir=/home/snkz/git/filebench/tmp
+set $nfiles=1000
 set $meandirwidth=20
 set $meanfilesize=128k
 set $nthreads=50
 set $meaniosize=1m
 set $meanappendsize=16k
-set $runtime=5
+set $runtime=20
 
 define fileset name=bigfileset,path=$dir,size=$meanfilesize,entries=$nfiles,dirwidth=$meandirwidth,prealloc=80
 
@@ -38,6 +38,7 @@ define process name=filereader,instances=1
 {
   thread name=filereaderthread,memsize=10m,instances=$nthreads
   {
+    #flowop barrier name=hey
     flowop createfile name=createfile1,filesetname=bigfileset,fd=1
     flowop writewholefile name=wrtfile1,srcfd=1,fd=1,iosize=$meaniosize
     flowop closefile name=closefile1,fd=1
@@ -49,10 +50,9 @@ define process name=filereader,instances=1
     flowop closefile name=closefile3,fd=1
     flowop deletefile name=deletefile1,filesetname=bigfileset
     flowop statfile name=statfile1,filesetname=bigfileset
+
   }
 }
-
-set $nfiles=1000
 
 echo "  File-server Version 3.0 personality"
 echo "    \$dir=$dir"
@@ -64,4 +64,4 @@ echo "    \$meaniosize=$meaniosize"
 echo "    \$meanappendsize=$meanappendsize"
 echo "    \$runtime=$runtime"
 
-run $runtime
+run $runtime 
