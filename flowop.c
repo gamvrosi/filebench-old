@@ -649,14 +649,20 @@ flowop_start(threadflow_t *threadflow)
 			}
 		}
 
-		/* advance to next flowop */
-        //TODO:(void) ipc_mutex_lock(&threadflow->tf_lock);
-        (void) ipc_mutex_lock(&threadflow->tf_lock);
-        // I can possibly update the processes next ptr
-		flowop = flowop->fo_exec_next;
-        //TODO:(void) ipc_mutex_unlock(&threadflow->tf_lock);
-        (void) ipc_mutex_unlock(&threadflow->tf_lock);
+		//TODO: This is the best place to sync threads
+        while ((threadflow->tf_process->pf_sleep_threads) > 0) {
+		    (void) ipc_mutex_lock(&threadflow->tf_process->pf_lock);
+            __sync_fetch_and_add(&threadflow->tf_process->pf_sleep_threads, 1);
+	        (void) pthread_cond_wait(&threadflow->tf_process->pf_cv,
+                    &threadflow->tf_process->pf_lock);
+		    (void) ipc_mutex_unlock(&threadflow->tf_process->pf_lock);
+        }
 
+        //(void) ipc_mutex_lock(&threadflow->tf_lock);
+		/* advance to next flowop */
+		flowop = flowop->fo_exec_next;
+
+        //(void) ipc_mutex_unlock(&threadflow->tf_lock);
 		/* but if at end of list, start over from the beginning */
 		if (flowop == NULL) {
 			flowop = threadflow->tf_thrd_fops;

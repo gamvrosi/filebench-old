@@ -3006,25 +3006,14 @@ parser_pause_barrier(int ptime, int btime, int dtime)
 			if (filebench_shm->shm_f_abort)
 				break;
             if (timeslept >= btime && timeslept % btime == 0 ) {
-                procflow_suspendthreads();
-                sleep(dtime);
-                procflow_resumethreads();
+                procflow_barrier(dtime);
+                //procflow_suspendthreads();
+                //sleep(dtime);
+                //procflow_resumethreads();
             }
 		}
 	} else {
-		/* initial runtime of 0 means run till abort */
-		/* CONSTCOND */
-		while (1) {
-			(void) sleep(1);
-			timeslept++;
-			if (filebench_shm->shm_f_abort)
-				break;
-            if (timeslept >= btime && timeslept % btime == 0 ) {
-                procflow_suspendthreads();
-                sleep(dtime);
-                procflow_resumethreads();
-            }
-		}
+        // THIS CASE SHOULD NEVER HAPPEN 
 	}
 
 	return (timeslept);
