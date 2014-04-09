@@ -948,7 +948,6 @@ procflow_resumethreads(void)
 	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
 }
 
-
 /* 
  * Pause a set of theads for the specified amount of time.
  * Used to create idle barriers between flowops.
@@ -965,13 +964,22 @@ procflow_barrier(int delay)
     
     //TODO: not entierly sure if i should lock at this point ... 
 	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
+    
+    procflow = filebench_shm->shm_procflowlist;
+	while (procflow) {
+		if ((procflow->pf_instance != FLOW_MASTER)) {
+            // SIGNAL PHASE
+            procflow->pf_sleep_threads = 1;
+        }
+		procflow = procflow->pf_next;
+    }
+     
 	procflow = filebench_shm->shm_procflowlist;
 	while (procflow) {
         gettimeofday(&tv1, NULL);
 		if ((procflow->pf_instance != FLOW_MASTER)) {
 
             // SYNC PHASE
-            procflow->pf_sleep_threads = 1;
             threads = procflow->pf_tf_instances;
             while(procflow->pf_sleep_threads != threads + 1) {
                 usleep(100);
@@ -982,11 +990,21 @@ procflow_barrier(int delay)
             seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
             printf("Took %f ms to SYNC %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 
 
-            // SLEEP PHASE
-            sleep(delay);
+        }
+
+		procflow = procflow->pf_next;
+	}
+
+    // SLEEP PHASE
+    sleep(delay);
+
+    procflow = filebench_shm->shm_procflowlist;
+	while (procflow) {
+        gettimeofday(&tv1, NULL);
+		if ((procflow->pf_instance != FLOW_MASTER)) {
 
             // RESUME PHASE
-            gettimeofday(&tv1, NULL);
+            threads = procflow->pf_tf_instances;
             (void) ipc_mutex_lock(&procflow->pf_lock);
             procflow->pf_sleep_threads = 0;
 		    (void) pthread_cond_broadcast(&procflow->pf_cv);
