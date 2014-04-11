@@ -954,7 +954,7 @@ procflow_resumethreads(void)
  * Note: This method cannot be called before filebench init, no saftey checks
  */
 void
-procflow_barrier(int delay)
+procflow_wait_threads(int delay)
 {
     procflow_t *procflow;
     
@@ -965,10 +965,10 @@ procflow_barrier(int delay)
     //TODO: not entierly sure if i should lock at this point ... 
 	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
     
+    // SIGNAL PHASE
     procflow = filebench_shm->shm_procflowlist;
 	while (procflow) {
 		if ((procflow->pf_instance != FLOW_MASTER)) {
-            // SIGNAL PHASE
             procflow->pf_sleep_threads = 1;
         }
 		procflow = procflow->pf_next;
@@ -982,10 +982,11 @@ procflow_barrier(int delay)
             // SYNC PHASE
             threads = procflow->pf_tf_instances;
             while(procflow->pf_sleep_threads != threads + 1) {
-                usleep(100);
+                //usleep(1000);
+                pthread_yield();
             }
 
-            printf("BARRIER SYNCED %d THREADS\n", threads);
+            printf("PROC %d BARRIER SYNCED %d THREADS\n", procflow->pf_instance, threads);
             gettimeofday(&tv2, NULL);
             seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
             printf("Took %f ms to SYNC %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 
@@ -998,6 +999,83 @@ procflow_barrier(int delay)
     // SLEEP PHASE
     sleep(delay);
 
+    // RESUME PHASE
+    procflow = filebench_shm->shm_procflowlist;
+	while (procflow) {
+        gettimeofday(&tv1, NULL);
+		if ((procflow->pf_instance != FLOW_MASTER)) {
+
+            threads = procflow->pf_tf_instances;
+            (void) ipc_mutex_lock(&procflow->pf_lock);
+            procflow->pf_sleep_threads = 0;
+		    (void) pthread_cond_broadcast(&procflow->pf_cv);
+            (void) ipc_mutex_unlock(&procflow->pf_lock);
+            printf("PROC %d BARRIER RESUMED %d THREADS\n", procflow->pf_instance, threads);
+            gettimeofday(&tv2, NULL);
+            seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
+            printf("Took %f ms to RESUME %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 
+
+        }
+
+		procflow = procflow->pf_next;
+	}
+	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
+}
+
+/* 
+ * Pause a set of theads for the specified amount of time.
+ * Used to create idle barriers between flowops.
+ * Note: This method cannot be called before filebench init, no saftey checks
+ */
+void
+procflow_barrier(int delay)
+{
+    procflow_t *procflow;
+    
+    int threads;
+    double seconds = 0;
+    struct timeval  tv1, tv2;
+    
+    //TODO: not entierly sure if i should lock at this point ... 
+	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
+
+    // SIGNAL PHASE CREATE BARS
+    procflow = filebench_shm->shm_procflowlist;
+	while (procflow) {
+		if ((procflow->pf_instance != FLOW_MASTER)) {
+
+            threads = procflow->pf_tf_instances;
+            pthread_barrier_init(&procflow->pf_bar_sync, ipc_barattr(), threads + 1);
+            pthread_barrier_init(&procflow->pf_bar_wait, ipc_barattr(), threads + 1);
+            procflow->pf_sleep_threads = 1;
+        }
+
+		procflow = procflow->pf_next;
+    }
+     
+    // SYNC PHASE JUMP ON FIRST BARRIER
+	procflow = filebench_shm->shm_procflowlist;
+	while (procflow) {
+        gettimeofday(&tv1, NULL);
+		if ((procflow->pf_instance != FLOW_MASTER)) {
+
+            threads = procflow->pf_tf_instances;
+            pthread_barrier_wait(&procflow->pf_bar_sync);
+
+            printf("PROC %d BARRIER SYNCED %d THREADS\n", procflow->pf_instance, threads);
+            gettimeofday(&tv2, NULL);
+            seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
+            printf("Took %f ms to SYNC %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 
+
+        }
+
+		procflow = procflow->pf_next;
+	}
+
+    // SLEEP PHASE
+    sleep(delay);
+
+    // RESUME PHAE JUMP ON SECOND BARRIER TO WAKE EM ALL UP, DESTROY BAR
     procflow = filebench_shm->shm_procflowlist;
 	while (procflow) {
         gettimeofday(&tv1, NULL);
@@ -1005,11 +1083,14 @@ procflow_barrier(int delay)
 
             // RESUME PHASE
             threads = procflow->pf_tf_instances;
-            (void) ipc_mutex_lock(&procflow->pf_lock);
             procflow->pf_sleep_threads = 0;
-		    (void) pthread_cond_broadcast(&procflow->pf_cv);
-            (void) ipc_mutex_unlock(&procflow->pf_lock);
-            printf("BARRIER RESUMED %d THREADS\n", threads);
+            
+            pthread_barrier_wait(&procflow->pf_bar_wait);
+
+            pthread_barrier_destroy(&procflow->pf_bar_sync);
+            pthread_barrier_destroy(&procflow->pf_bar_wait);
+
+            printf("PROC %d BARRIER RESUMED %d THREADS\n", procflow->pf_instance, threads);
             gettimeofday(&tv2, NULL);
             seconds = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec);
             printf("Took %f ms to RESUME %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 

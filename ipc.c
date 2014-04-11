@@ -209,6 +209,35 @@ ipc_condattr(void)
 	return (condattr);
 }
 
+static pthread_barrierattr_t *barattr = NULL;
+/*
+ * On first invocation, allocates a barrier attributes
+ * structure and initializes it with appropriate attributes. In
+ * all cases, returns a pointer to the structure.
+ */
+pthread_barrierattr_t *
+ipc_barattr(void)
+{
+	if (barattr == NULL) {
+		if ((barattr = malloc(sizeof (pthread_barrierattr_t))) == NULL) {
+			filebench_log(LOG_ERROR, "cannot alloc bar attr");
+			filebench_shutdown(1);
+		}
+		(void) pthread_barrierattr_init(barattr);
+#ifdef HAVE_PROCSCOPE_PTHREADS
+		if (pthread_barrierattr_setpshared(barattr,
+		    PTHREAD_PROCESS_SHARED) != 0) {
+			filebench_log(LOG_ERROR,
+			    "cannot set bar attr PROCESS_SHARED");
+//			filebench_shutdown(1);
+		}
+#endif /* HAVE_PROCSCOPE_PTHREADS */
+	}
+	return (barattr);
+}
+
+
+
 static pthread_rwlockattr_t *rwlockattr = NULL;
 
 /*

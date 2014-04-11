@@ -259,6 +259,7 @@ void ipc_free(int type, char *addr);
 
 pthread_mutexattr_t *ipc_mutexattr(int);
 pthread_condattr_t *ipc_condattr(void);
+pthread_barrierattr_t *ipc_barattr(void);
 int ipc_semidalloc(void);
 void ipc_semidfree(int semid);
 char *ipc_stralloc(const char *string);
