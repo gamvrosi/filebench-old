@@ -2968,11 +2968,6 @@ parser_pause(int ptime)
             printf("FILEBENCH CLOCK %d\n", timeslept);
 			if (filebench_shm->shm_f_abort)
 				break;
-            //if (timeslept >= 4 && timeslept % 4 == 0 ) {
-            //    procflow_suspendthreads();
-            //    sleep(2);
-            //    procflow_resumethreads();
-            //}
 		}
 	} else {
 		/* initial runtime of 0 means run till abort */
@@ -2982,11 +2977,6 @@ parser_pause(int ptime)
 			timeslept++;
 			if (filebench_shm->shm_f_abort)
 				break;
-            //if (timeslept % 2 == 0) {
-            //    procflow_suspend();
-            //    sleep(1);
-            //    procflow_resume();
-            //}
 		}
 	}
 
@@ -3007,9 +2997,6 @@ parser_pause_barrier(int ptime, int btime, int dtime)
 				break;
             if (timeslept >= btime && timeslept % btime == 0 ) {
                 procflow_barrier(dtime);
-                //procflow_suspendthreads();
-                //sleep(dtime);
-                //procflow_resumethreads();
             }
 		}
 	} else {

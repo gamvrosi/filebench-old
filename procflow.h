@@ -35,7 +35,7 @@ typedef struct procflow {
 	int		pf_instance;
 	avd_t		pf_instances;
 	int		pf_running;
-	int		pf_sleep_threads; /* 0 is sleep, 1 planed sleep, n tf asleep */
+	int		pf_sleep_threads; /* Indicates the number of sleeping threads, doubles as flag to start sleep */
 	pthread_cond_t	pf_cv;		/* Block/wakeup CV */
 	pthread_mutex_t	pf_lock;	/* Mutex around each procflow */
 	pthread_barrier_t pf_bar_sync;	/* Barrier for threads to meet on  */
@@ -59,8 +59,6 @@ void	procflow_usage(void);
 int	procflow_allstarted(void);
 void procflow_suspend(void);
 void procflow_resume(void);
-void procflow_suspendthreads(void);
-void procflow_resumethreads(void);
 void procflow_wait_threads(int delay);
 void procflow_barrier(int delay);
 

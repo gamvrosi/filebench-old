@@ -649,7 +649,14 @@ flowop_start(threadflow_t *threadflow)
 			}
 		}
 
-		//TODO: This is the best place to sync threads
+        // V3. BARRIER
+        while ((threadflow->tf_process->pf_sleep_threads) > 0) {
+            pthread_barrier_wait(&threadflow->tf_process->pf_bar_sync);
+            pthread_barrier_wait(&threadflow->tf_process->pf_bar_wait);
+        }
+
+        // V2. WAIT CHAN  
+        /*
         while ((threadflow->tf_process->pf_sleep_threads) > 0) {
 		    (void) ipc_mutex_lock(&threadflow->tf_process->pf_lock);
             __sync_fetch_and_add(&threadflow->tf_process->pf_sleep_threads, 1);
@@ -657,13 +664,12 @@ flowop_start(threadflow_t *threadflow)
                     &threadflow->tf_process->pf_lock);
 		    (void) ipc_mutex_unlock(&threadflow->tf_process->pf_lock);
         }
+        */
 
-        //(void) ipc_mutex_lock(&threadflow->tf_lock);
+
 		/* advance to next flowop */
 		flowop = flowop->fo_exec_next;
 
-        //(void) ipc_mutex_unlock(&threadflow->tf_lock);
-		/* but if at end of list, start over from the beginning */
 		if (flowop == NULL) {
 			flowop = threadflow->tf_thrd_fops;
 			threadflow->tf_stats.fs_count++;
