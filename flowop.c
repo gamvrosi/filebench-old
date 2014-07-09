@@ -649,24 +649,8 @@ flowop_start(threadflow_t *threadflow)
 			}
 		}
 
-        // V3. BARRIER
-        while ((threadflow->tf_process->pf_sleep_threads) > 0) {
-            pthread_barrier_wait(&threadflow->tf_process->pf_bar_sync);
-            pthread_barrier_wait(&threadflow->tf_process->pf_bar_wait);
-        }
-
-        // V2. WAIT CHAN  
-        /*
-        while ((threadflow->tf_process->pf_sleep_threads) > 0) {
-		    (void) ipc_mutex_lock(&threadflow->tf_process->pf_lock);
-            __sync_fetch_and_add(&threadflow->tf_process->pf_sleep_threads, 1);
-	        (void) pthread_cond_wait(&threadflow->tf_process->pf_cv,
-                    &threadflow->tf_process->pf_lock);
-		    (void) ipc_mutex_unlock(&threadflow->tf_process->pf_lock);
-        }
-        */
-
-
+        flowop_barrier(threadflow);
+        
 		/* advance to next flowop */
 		flowop = flowop->fo_exec_next;
 
@@ -1304,3 +1288,29 @@ flowop_flow_init(flowop_proto_t *list, int nops)
 		flowop->fo_attrs = fl->fl_attrs;
 	}
 }
+
+void
+flowop_barrier(threadflow_t *threadflow) 
+{
+        // Unneccasary if block, used with bash script to choose barrier implementation
+        if (1 == 0) {
+        // V3. BARRIER
+            while ((threadflow->tf_process->pf_sleep_threads)) {
+                pthread_barrier_wait(&threadflow->tf_process->pf_bar_sync);
+                pthread_barrier_wait(&threadflow->tf_process->pf_bar_wait);
+            }
+
+        } else {
+        // V2. WAIT CHAN  
+            while ((threadflow->tf_process->pf_sleep_threads) > 0) {
+		        (void) ipc_mutex_lock(&threadflow->tf_process->pf_lock);
+                //__sync_fetch_and_add(&threadflow->tf_process->pf_sleep_threads, 1);
+                threadflow->tf_process->pf_sleep_threads++;
+	            (void) pthread_cond_wait(&threadflow->tf_process->pf_cv,
+                        &threadflow->tf_process->pf_lock);
+		        (void) ipc_mutex_unlock(&threadflow->tf_process->pf_lock);
+            }
+        }
+}
+
+

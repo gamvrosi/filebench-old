@@ -23,24 +23,24 @@
 # Use is subject to license terms.
 #
 
-set $dir=/home/snkz/git/filebench/tmp
-set $nfiles=1000
+set $dir=tmp
+set $nfiles=2000
 set $meandirwidth=20
 set $meanfilesize=128k
-set $nthreads=50
-set $meaniosize=1m
-set $meanappendsize=16k
-set $runtime=20
-set $bartime=5
-set $deltime=5
+set $meaniosize=16k
+set $meanappendsize=32k
+set $nthreads=5
+set $nproc=1
+set $runtime=21
+set $bartime=4
+set $deltime=1
 
 define fileset name=bigfileset,path=$dir,size=$meanfilesize,entries=$nfiles,dirwidth=$meandirwidth,prealloc=80
 
-define process name=filereader,instances=2
+define process name=filereader,instances=$nproc
 {
   thread name=filereaderthread,memsize=10m,instances=$nthreads
   {
-    #flowop barrier name=hey
     flowop createfile name=createfile1,filesetname=bigfileset,fd=1
     flowop writewholefile name=wrtfile1,srcfd=1,fd=1,iosize=$meaniosize
     flowop closefile name=closefile1,fd=1

@@ -2128,7 +2128,9 @@ flowoplib_listdir(threadflow_t *threadflow, flowop_t *flowop)
 	}
 
 	/* read through the directory entries */
+    //XXX: BARRIER SYNC HERE
 	while ((direntp = FB_READDIR(dir_handle)) != NULL) {
+        flowop_barrier(threadflow);
 		dir_bytes += (strlen(direntp->d_name) +
 		    sizeof (struct dirent) - 1);
 	}
@@ -2294,8 +2296,10 @@ flowoplib_readwholefile(threadflow_t *threadflow, flowop_t *flowop)
 	/* Measure time to read bytes */
 	flowop_beginop(threadflow, flowop);
 	(void) FB_LSEEK(fdesc, 0, SEEK_SET);
-	while ((ret = FB_READ(fdesc, iobuf, iosize)) > 0)
+	while ((ret = FB_READ(fdesc, iobuf, iosize)) > 0) {
+        flowop_barrier(threadflow);
 		bytes += ret;
+    }
 
 	flowop_endop(threadflow, flowop, bytes);
 
@@ -2438,6 +2442,8 @@ flowoplib_writewholefile(threadflow_t *threadflow, flowop_t *flowop)
 	/* Measure time to write bytes */
 	flowop_beginop(threadflow, flowop);
 	for (seek = 0; seek < wss; seek += wsize) {
+        //XXX: BARRIER SYNC HERE
+        flowop_barrier(threadflow);
 		ret = FB_WRITE(fdesc, iobuf, wsize);
 		if (ret != wsize) {
 			filebench_log(LOG_ERROR,
