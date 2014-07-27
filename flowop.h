@@ -152,5 +152,6 @@ void flowop_beginop(threadflow_t *threadflow, flowop_t *flowop);
 void flowop_destruct_all_flows(threadflow_t *threadflow);
 flowop_t *flowop_new_composite_define(char *name);
 void flowop_printall(void);
+void flowop_barrier(threadflow_t *threadflow);
 
 #endif	/* _FB_FLOWOP_H */

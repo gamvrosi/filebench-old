@@ -132,6 +132,7 @@ threadflow_init(procflow_t *procflow)
 		int i;
 
 		instances = avd_get_int(threadflow->tf_instances);
+        // line below is new to idlebarrier code
         procflow->pf_tf_instances = instances;
 		filebench_log(LOG_VERBOSE,
 		    "Starting %d %s threads",

@@ -26,6 +26,9 @@
 #ifndef _FB_PROCFLOW_H
 #define	_FB_PROCFLOW_H
 
+#define	IDLE_DEBUG
+//#define DO_WAITCHAN
+
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 #include "filebench.h"
@@ -35,12 +38,15 @@ typedef struct procflow {
 	int		pf_instance;
 	avd_t		pf_instances;
 	int		pf_running;
-	int		pf_sleep_threads; /* Indicates the number of sleeping threads, doubles as flag to start sleep */
+	int		pf_sleep_threads; /* Indicates if threads should sleep or not */
     double pf_delay; /* store the delay time for barrier operations to start */
+#ifdef DO_WAITCHAN
 	pthread_cond_t	pf_cv;		/* Block/wakeup CV */
 	pthread_mutex_t	pf_lock;	/* Mutex around each procflow */
+#else
 	pthread_barrier_t pf_bar_sync;	/* Barrier for threads to meet on  */
 	pthread_barrier_t pf_bar_wait;	/* Barrier for threads to sleep on */
+#endif
 	void		*fo_private;	/* Flowop private scratch pad area */
 	flag_t          pf_threads_defined_flag;
 	struct procflow	*pf_next;

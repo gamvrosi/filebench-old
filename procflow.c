@@ -469,12 +469,13 @@ procflow_init(void)
 	    procflow->pf_name,
 	    (u_longlong_t)avd_get_int(procflow->pf_instances));
 
-    //XXX: New lock inits for idle barrier
+#ifdef DO_WAITCHAN
     (void) pthread_mutex_init(&procflow->pf_lock,
 	    ipc_mutexattr(IPC_MUTEX_NORMAL));
 
 	(void) pthread_cond_init(&procflow->pf_cv, 
             ipc_condattr());
+#endif
 
     procflow->pf_sleep_threads = 0;
 
@@ -799,6 +800,32 @@ procflow_define(char *name, procflow_t *inherit, avd_t instances)
 	return (procflow);
 }
 
+
+/* 
+ * New idlebarrier code found here, includes three implementations
+ *
+ * 1. suspend/resume: 
+ *          done through proccess signaling. does not allow thread level 
+ *          granularity or any active i/o gurantees, hence it is not used
+ *          however it is the simplest and quickest implementation.
+ *
+ * 2. wait_threads:
+ *          uses a condition variable to sync threads. master thread loops
+ *          waiting for the thread count to be correct. threads individually
+ *          place them selves on the channel after completing an i/o or flowop.
+ *          
+ * 3. barrier:
+ *          uses two barriers to sync threads. master thread creates barriers
+ *          and places itself on one. threads individually place themselves on
+ *          the same barrier after completing an i/o or flowop. after barrier 
+ *          thread count is reached, all threads are freeded. master thread 
+ *          does not immediately jump to second barrier while the others do. 
+ *          master thread places itself on second barrier when it is time to 
+ *          continue workload.
+ *
+ */
+
+
 /* 
  * Suspend all defined procflows.
  * Used to create idle barriers between flowops.
@@ -813,14 +840,18 @@ procflow_suspend(void)
 	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
 	procflow = filebench_shm->shm_procflowlist;
     pid_t pid;
+    int i = 0;
 	while (procflow) {
         //TODO: Add in param to choose what procs to sleep
 		if (procflow->pf_running && procflow->pf_instance != FLOW_MASTER) {
 		    pid = procflow->pf_pid;
 #ifdef HAVE_SIGSEND
-			(void) sigsend(P_PID, pid, SIGSTOP);
+			i = sigsend(P_PID, pid, SIGSTOP);
 #else
-			int i = kill(pid, SIGSTOP);
+			i = kill(pid, SIGSTOP);
+#endif
+
+#ifdef IDLE_DEBUG
             printf("SUSPENDING sig returned %d\n", i);
 #endif
         }
@@ -843,13 +874,17 @@ procflow_resume(void)
 	// (void)ipc_mutex_lock(&filebench_shm->shm_procflow_lock);
 	procflow = filebench_shm->shm_procflowlist;
     pid_t pid;
+    int i = 0;
 	while (procflow) {
 		if (procflow->pf_running && procflow->pf_instance != FLOW_MASTER) {
 		    pid = procflow->pf_pid;
 #ifdef HAVE_SIGSEND
-			(void) sigsend(P_PID, pid, SIGCONT);
+			i = sigsend(P_PID, pid, SIGCONT);
 #else
-			int i = kill(pid, SIGCONT);
+			i = kill(pid, SIGCONT);
+#endif
+
+#ifdef IDLE_DEBUG
             printf("RESUMING sig returned %d\n", i);
 #endif
         }
@@ -858,6 +893,7 @@ procflow_resume(void)
 	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
 }
 
+#ifdef DO_WAITCHAN
 /* 
  * Pause a set of theads for the specified amount of time.
  * Used to create idle barriers between flowops.
@@ -884,12 +920,13 @@ procflow_wait_threads(int delay)
 		procflow = procflow->pf_next;
     }
      
+    // SYNC PHASE LOOP UNTILL THREAD COUNT IS CORRECT
 	procflow = filebench_shm->shm_procflowlist;
 	while (procflow) {
         tv1 = gethrtime();
 		if ((procflow->pf_instance != FLOW_MASTER)) {
 
-            // SYNC PHASE
+            //NOTE: this field is filled during procflow creation!
             threads = procflow->pf_tf_instances;
             while(procflow->pf_sleep_threads != threads + 1) {
                 pthread_yield();
@@ -898,8 +935,10 @@ procflow_wait_threads(int delay)
             tv2 = gethrtime();
             seconds = ((double)(tv2 - tv1) / FSECS);
             procflow->pf_delay = seconds;
-            //printf("WCS: Took %f ms to SYNC %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 
-
+#ifdef IDLE_DEBUG
+            printf("WCS: Took %f ms to SYNC %d threads in procflow %d\n", 
+                    seconds*1000, threads, procflow->pf_instance); 
+#endif
         }
 
 		procflow = procflow->pf_next;
@@ -923,16 +962,17 @@ procflow_wait_threads(int delay)
             tv2 = gethrtime();
             seconds = ((double)(tv2 - tv1) / FSECS);
             procflow->pf_delay += seconds;
-            //printf("WCR: Took %f ms to RESUME %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 
-
+#ifdef IDLE_DEBUG
+            printf("WCR: Took %f ms to RESUME %d threads in procflow %d\n", 
+                    seconds*1000, threads, procflow->pf_instance); 
+#endif
         }
 
 		procflow = procflow->pf_next;
 	}
-	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
  
+#ifdef IDLE_DEBUG
     // DATA COLLECTION LOOP TOTALLY NOT NECASSARY
-    /*
     double sum_delay = 0;
     int proc_count = 0;
     procflow = filebench_shm->shm_procflowlist;
@@ -943,12 +983,14 @@ procflow_wait_threads(int delay)
         }
 		procflow = procflow->pf_next;
 	}
-    */
 
-    //printf("WCD: Took %f ms to BARRIER %d threads in %d procflows\n", sum_delay*1000, threads, proc_count); 
-
+    printf("WCD: Took %f ms to BARRIER %d threads in %d procflows\n", 
+            sum_delay*1000, threads, proc_count); 
+#endif
+	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
 }
 
+#else
 /* 
  * Pause a set of theads for the specified amount of time.
  * Used to create idle barriers between flowops.
@@ -992,8 +1034,10 @@ procflow_barrier(int delay)
             tv2 = gethrtime();
             seconds = ((double)(tv2 - tv1) / FSECS);
             procflow->pf_delay = seconds;
-            //printf("BS: Took %f ms to SYNC %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 
-
+#ifdef IDLE_DEBUG
+            printf("BS: Took %f ms to SYNC %d threads in procflow %d\n", 
+                    seconds*1000, threads, procflow->pf_instance); 
+#endif
         }
 
 		procflow = procflow->pf_next;
@@ -1020,14 +1064,17 @@ procflow_barrier(int delay)
             tv2 = gethrtime();
             seconds = ((double)(tv2 - tv1) / FSECS);
             procflow->pf_delay += seconds;
-            //printf("BR: Took %f ms to RESUME %d threads in procflow %d\n", seconds*1000, threads, procflow->pf_instance); 
+#ifdef IDLE_DEBUG
+            printf("BR: Took %f ms to RESUME %d threads in procflow %d\n", 
+                    seconds*1000, threads, procflow->pf_instance); 
+#endif
         }
 
 		procflow = procflow->pf_next;
 	}
 
+#ifdef IDLE_DEBUG
     // DATA COLLECTION LOOP TOTALLY NOT NECASSARY
-    /*
     double sum_delay = 0;
     int proc_count = 0;
     procflow = filebench_shm->shm_procflowlist;
@@ -1038,9 +1085,10 @@ procflow_barrier(int delay)
         }
 		procflow = procflow->pf_next;
 	}
-    */
 
-    //printf("BD: Took %f ms to BARRIER %d threads in %d procflows\n", sum_delay*1000, threads, proc_count); 
+    printf("BD: Took %f ms to BARRIER %d threads in %d procflows\n", 
+            sum_delay*1000, threads, proc_count); 
+#endif
 	// (void)ipc_mutex_unlock(&filebench_shm->shm_procflow_lock);
 }
-
+#endif

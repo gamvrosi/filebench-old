@@ -82,7 +82,6 @@ static int flowoplib_block(threadflow_t *threadflow, flowop_t *flowop);
 static int flowoplib_wakeup(threadflow_t *threadflow, flowop_t *flowop);
 static int flowoplib_hog(threadflow_t *threadflow, flowop_t *flowop);
 static int flowoplib_delay(threadflow_t *threadflow, flowop_t *flowop);
-static int flowoplib_barrier(threadflow_t *threadflow, flowop_t *flowop);
 static int flowoplib_sempost(threadflow_t *threadflow, flowop_t *flowop);
 static int flowoplib_sempost_init(flowop_t *flowop);
 static int flowoplib_semblock(threadflow_t *threadflow, flowop_t *flowop);
@@ -130,8 +129,6 @@ static flowop_proto_t flowoplib_funcs[] = {
 	flowoplib_hog, flowop_destruct_generic},
 	{FLOW_TYPE_OTHER, 0, "delay", flowop_init_generic,
 	flowoplib_delay, flowop_destruct_generic},
-	{FLOW_TYPE_OTHER, 0, "barrier", flowop_init_generic,
-	flowoplib_barrier, flowop_destruct_generic},
 	{FLOW_TYPE_OTHER, 0, "eventlimit", flowop_init_generic,
 	flowoplib_eventlimit, flowop_destruct_generic},
 	{FLOW_TYPE_OTHER, 0, "bwlimit", flowop_init_generic,
@@ -741,35 +738,6 @@ flowoplib_delay(threadflow_t *threadflow, flowop_t *flowop)
 	flowop_endop(threadflow, flowop, 0);
 	return (FILEBENCH_OK);
 }
-
-/*
- * Barrier sync all threads with matching flowop name.
- */
-static int
-flowoplib_barrier(threadflow_t *threadflow, flowop_t *flowop)
-{
-
-    int total = 0;
-	flowop_t *result = flowop_find(flowop->fo_name);
-    if (threadflow->tf_instance == 5) {
-        while(result) {
-	        if (result->fo_instance != FLOW_MASTER) {
-                total++;
-            }
-            result->fo_targetnext = result->fo_resultnext;
-	    	result = result->fo_resultnext;
-        }
-        printf("Hey i counted this many threads in my group %d, i am %d op %d uid %d\n", total, threadflow->tf_instance, flowop->fo_instance, threadflow->tf_utid);
-    }
-
-
-    flowop_beginop(threadflow, flowop);
-	//(void) sleep(1);
-	flowop_endop(threadflow, flowop, 0);
-	return (FILEBENCH_OK);
-
-}
-
 
 /*
  * Rate limiting routines. This is the event consuming half of the
@@ -2128,7 +2096,6 @@ flowoplib_listdir(threadflow_t *threadflow, flowop_t *flowop)
 	}
 
 	/* read through the directory entries */
-    //XXX: BARRIER SYNC HERE
 	while ((direntp = FB_READDIR(dir_handle)) != NULL) {
         flowop_barrier(threadflow);
 		dir_bytes += (strlen(direntp->d_name) +
@@ -2442,7 +2409,6 @@ flowoplib_writewholefile(threadflow_t *threadflow, flowop_t *flowop)
 	/* Measure time to write bytes */
 	flowop_beginop(threadflow, flowop);
 	for (seek = 0; seek < wss; seek += wsize) {
-        //XXX: BARRIER SYNC HERE
         flowop_barrier(threadflow);
 		ret = FB_WRITE(fdesc, iobuf, wsize);
 		if (ret != wsize) {

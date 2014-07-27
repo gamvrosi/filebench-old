@@ -2992,12 +2992,17 @@ parser_pause_barrier(int ptime, int btime, int dtime)
 		while (timeslept < ptime) {
 			(void) sleep(1);
 			timeslept++;
-            //printf("C: FILEBENCH CLOCK %d\n", timeslept);
+#ifdef IDLE_DEBUG
+            printf("C: FILEBENCH CLOCK %d\n", timeslept);
+#endif
 			if (filebench_shm->shm_f_abort)
 				break;
             if (timeslept >= btime && timeslept % btime == 0 ) {
-                // script chooses barrier implementation 
+#ifdef DO_WAITCHAN
                 procflow_wait_threads(dtime);
+#else
+                procflow_barrier(dtime);
+#endif
             }
 		}
 	} else {
